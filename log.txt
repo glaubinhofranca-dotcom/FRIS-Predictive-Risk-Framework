@@ -1,0 +1,268 @@
+Logs FRIS V2
+
+ETL:
+=== LOADING ===
+  Loaded Borrower Details.xlsx: 1,302 rows, 37 columns
+
+=== STEP 1: FILTER ON LEVL_CODE ===
+  Total raw records:       1,302
+  Excluded (invalid LEVL): 0
+  Valid population:        1,302 students
+
+  LEVL_CODE breakdown (from Banner):
+    GR: 310  (23.8%)
+    UG: 992  (76.2%)
+
+=== STEP 2: DEFAULT FLAG ===
+  Definition: Days Delinquent > 270 (34 CFR § 682.200)
+  Defaults:   98  (7.5%)
+  Current:    1,204  (92.5%)
+
+  Default rate by LEVL_CODE:
+    GR: 4.5%  (14 of 310)
+    UG: 8.5%  (84 of 992)
+
+=== STEP 3: FEATURES ===
+
+  Enrollment status (SFBETRM_ESTS_CODE) breakdown:
+SFBETRM_ESTS_CODE
+EL    1233
+WD      35
+W7      15
+W6      10
+W4       9
+
+  Feature completeness:
+    level                     100.0%  (1,302 non-null)  ████████████████████
+    program                   100.0%  (1,302 non-null)  ████████████████████
+    major                     100.0%  (1,302 non-null)  ████████████████████
+    student_type              100.0%  (1,302 non-null)  ████████████████████
+    campus_code               100.0%  (1,302 non-null)  ████████████████████
+    gpa                       100.0%  (1,302 non-null)  ████████████████████
+    credits_earned            100.0%  (1,302 non-null)  ████████████████████
+    graduated                 100.0%  (1,302 non-null)  ████████████████████
+    withdrawn                 100.0%  (1,302 non-null)  ████████████████████
+    num_loans                 100.0%  (1,302 non-null)  ████████████████████
+    original_loan_amount      100.0%  (1,302 non-null)  ████████████████████
+    current_balance           100.0%  (1,302 non-null)  ████████████████████
+    payment_plan              100.0%  (1,302 non-null)  ████████████████████
+
+=== STEP 4: SAVING ===
+  Saved:   c:\Users\GFranca-Rocha\OneDrive - New England College\Student Financial Services - BI Files\New Project\FRIS\📂 FRIS-Predictive-Analytics_v2\dataset_fris.csv
+  Shape:   1,302 rows × 15 columns
+  Level column source: LEVL_CODE (Banner authoritative field)
+
+  Sample — level value distribution in output dataset:
+level
+UG    992
+GR    310
+
+  Ready for fris_model.py
+
+MODEL:
+=== LOADING DATA ===
+  Rows: 1,302  |  Columns: 15
+  Default rate: 7.5%  (98 of 1,302)
+
+  Level distribution (LEVL_CODE from Banner):
+level
+UG    992
+GR    310
+
+  Categorical features (5): ['level', 'program', 'student_type', 'campus_code', 'payment_plan']
+  Numeric features    (7): ['gpa', 'graduated', 'withdrawn', 'credits_earned', 'num_loans', 'original_loan_amount', 'current_balance']
+
+  Training rows: 1,302 | Class balance: {0: 1204, 1: 98}
+
+=== CROSS-VALIDATION (5-fold stratified) ===
+
+────────────────────────────────────────────
+  Logistic Regression
+  AUC:       0.754 ± 0.072
+  F1:        0.276 ± 0.068
+  Precision: 0.180 ± 0.047
+  Recall:    0.601 ± 0.121
+  Accuracy:  0.759 ± 0.035
+────────────────────────────────────────────
+  Random Forest
+  AUC:       0.772 ± 0.055
+  F1:        0.310 ± 0.081
+  Precision: 0.226 ± 0.068
+  Recall:    0.499 ± 0.081
+  Accuracy:  0.826 ± 0.039
+────────────────────────────────────────────
+  Gradient Boosting
+  AUC:       0.745 ± 0.056
+  F1:        0.063 ± 0.057
+  Precision: 0.186 ± 0.190
+  Recall:    0.040 ± 0.037
+  Accuracy:  0.912 ± 0.007
+
+  Best model by AUC: Random Forest
+
+=== TRAINING BEST MODEL (Random Forest) — full dataset ===
+  Saved: c:\Users\GFranca-Rocha\OneDrive - New England College\Student Financial Services - BI Files\New Project\FRIS\📂 FRIS-Predictive-Analytics_v2\fris_best_model.pkl
+
+=== TOP 15 FEATURES ===
+  gpa                                        0.1192  ████████████████████████████████████████
+  credits_earned                             0.0940  ███████████████████████████████
+  payment_plan_Standard Repayment            0.0857  ████████████████████████████
+  current_balance                            0.0773  █████████████████████████
+  original_loan_amount                       0.0635  █████████████████████
+  graduated                                  0.0498  ████████████████
+  payment_plan_Revised Pay As You Earn (REPAYE) 0.0439  ██████████████
+  num_loans                                  0.0411  █████████████
+  campus_code_XU                             0.0275  █████████
+  payment_plan_Income Based Repayment - 2014 with partial financial hardship 0.0273  █████████
+  student_type_Returning Student             0.0272  █████████
+  campus_code_HC                             0.0204  ██████
+  program_BSN Nursing                        0.0203  ██████
+  campus_code_H                              0.0174  █████
+  student_type_Graduate Student              0.0126  ████
+
+  Aggregated importance by feature (pre-OHE):
+  payment_plan              0.1858  (18.6%)  ████████████████████████████████████████
+  program                   0.1607  (16.1%)  ██████████████████████████████████
+  campus_code               0.1202  (12.0%)  █████████████████████████
+  gpa                       0.1192  (11.9%)  █████████████████████████
+  credits_earned            0.0940  (9.4%)  ████████████████████
+  current_balance           0.0773  (7.7%)  ████████████████
+  student_type              0.0679  (6.8%)  ██████████████
+  original_loan_amount      0.0635  (6.3%)  █████████████
+  graduated                 0.0498  (5.0%)  ██████████
+  num_loans                 0.0411  (4.1%)  ████████
+  level                     0.0160  (1.6%)  ███
+  withdrawn                 0.0045  (0.4%)
+
+=== SUB-GROUP AUC BY LEVL_CODE (Banner academic level) ===
+  UG: AUC=0.796 | n=992 | defaults=84 (8.5%)
+  GR: AUC=0.564 | n=310 | defaults=14 (4.5%)
+
+  Chart saved: c:\Users\GFranca-Rocha\OneDrive - New England College\Student Financial Services - BI Files\New Project\FRIS\📂 FRIS-Predictive-Analytics_v2\fris_model_results.png
+=== DONE ===
+
+SEGMENTATION:
+Loaded: 1,302 students | Default rate: 7.5%
+
+Level distribution (from LEVL_CODE · Banner authoritative field):
+level
+UG    992
+GR    310
+
+============================================================
+  Overall default rate: 7.5%  (n=1,302  |  98 defaults)
+============================================================
+
+── Level (LEVL_CODE) ─────────────────────────────────────
+  UG — Undergraduate                      8.5%  n=992   (84 defaults)
+  GR — Graduate                           4.5%  n=310   (14 defaults) ▼
+
+── Student type ──────────────────────────────────────────
+  Returning Student                      33.3%  n=27    (9 defaults) ▲
+  First time student                      9.1%  n=635   (58 defaults)
+  Readmit or Returning fm Leave           6.7%  n=60    (4 defaults)
+  Transfer Student                        5.4%  n=258   (14 defaults)
+  Graduate Student                        4.2%  n=313   (13 defaults) ▼
+  Not Returning Confirmed                 0.0%  n=6     (0 defaults) ▼
+
+── Campus ────────────────────────────────────────────────
+  XU                                     23.6%  n=55    (13 defaults) ▲
+  D1                                     22.2%  n=9     (2 defaults) ▲
+  MHO                                    16.7%  n=6     (1 defaults) ▲
+  UIR                                    11.1%  n=9     (1 defaults) ▲
+  H                                      10.2%  n=559   (57 defaults)
+  M                                       8.5%  n=47    (4 defaults)
+  DCC                                     8.3%  n=12    (1 defaults)
+  UE7                                     8.3%  n=12    (1 defaults)
+  N                                       6.2%  n=16    (1 defaults)
+  MPW                                     6.2%  n=16    (1 defaults)
+  Q                                       4.8%  n=21    (1 defaults)
+  O77                                     4.6%  n=151   (7 defaults)
+  E7                                      3.8%  n=52    (2 defaults) ▼
+  IA                                      3.7%  n=81    (3 defaults) ▼
+  RO                                      2.3%  n=86    (2 defaults) ▼
+  D3                                      0.0%  n=6     (0 defaults) ▼
+  CCR                                     0.0%  n=11    (0 defaults) ▼
+  CB                                      0.0%  n=17    (0 defaults) ▼
+  MGR                                     0.0%  n=6     (0 defaults) ▼
+  MUR                                     0.0%  n=5     (0 defaults) ▼
+  MSA                                     0.0%  n=12    (0 defaults) ▼
+  HC                                      0.0%  n=71    (0 defaults) ▼
+  UHE                                     0.0%  n=5     (0 defaults) ▼
+
+── GPA band ──────────────────────────────────────────────
+  < 2.0                                  16.6%  n=187   (31 defaults) ▲
+  2.0–2.5                                13.6%  n=140   (19 defaults) ▲
+  2.5–3.0                                 8.6%  n=197   (17 defaults)
+  3.0–3.5                                 3.5%  n=257   (9 defaults) ▼
+  3.5–4.0                                 3.0%  n=433   (13 defaults) ▼
+
+── Loan amount ───────────────────────────────────────────
+  $5K–$15K                               10.2%  n=471   (48 defaults)
+  > $50K                                  8.3%  n=72    (6 defaults)
+  < $5K                                   6.7%  n=180   (12 defaults)
+  $30K–$50K                               5.9%  n=188   (11 defaults)
+  $15K–$30K                               5.4%  n=391   (21 defaults)
+
+── Payment plan ──────────────────────────────────────────
+  Extended Fixed Repayment               14.3%  n=7     (1 defaults) ▲
+  Standard Repayment                     10.1%  n=900   (91 defaults)
+  Graduated 10-Year Repayment             6.0%  n=50    (3 defaults)
+  Income Contingent Repayment             4.2%  n=24    (1 defaults) ▼
+  Extended Graduated Repayment            2.8%  n=36    (1 defaults) ▼
+  Income Based Repayment - 2014 with partial financial hardship  0.0%  n=81    (0 defaults) ▼
+  Income-Based Repayment - Partial Financial Hardship  0.0%  n=24    (0 defaults) ▼
+  Pay as You Earn Repayment - Partial Financial Hardship  0.0%  n=33    (0 defaults) ▼
+  Revised Pay As You Earn (REPAYE)        0.0%  n=136   (0 defaults) ▼
+
+── Program ───────────────────────────────────────────────
+  Game and Digital Media Design          20.0%  n=15    (3 defaults) ▲
+  Communications                         18.8%  n=16    (3 defaults) ▲
+  Psychology Human Services              18.8%  n=16    (3 defaults) ▲
+  AA in Psychology                       16.7%  n=12    (2 defaults) ▲
+  BA in Criminal Justice                 16.7%  n=12    (2 defaults) ▲
+  Education Elementary                   15.4%  n=13    (2 defaults) ▲
+  Undeclared                             15.4%  n=26    (4 defaults) ▲
+  Psychology General                     14.8%  n=54    (8 defaults) ▲
+  MBA in Sports & Recreation Mgt         13.0%  n=23    (3 defaults) ▲
+  Computer Information Systems           12.5%  n=16    (2 defaults) ▲
+  Sport & Rec Management                 12.2%  n=49    (6 defaults) ▲
+  Business Admin: Marketing              11.4%  n=44    (5 defaults) ▲
+  Criminal Justice                       11.1%  n=63    (7 defaults) ▲
+  Business Admin. Accounting             10.0%  n=10    (1 defaults)
+  Business Administration                 9.1%  n=55    (5 defaults)
+  BA Interntl Relatns & Diplomcy          9.1%  n=11    (1 defaults)
+  BA in Psychology                        8.8%  n=34    (3 defaults)
+  Creative Writing                        7.7%  n=13    (1 defaults)
+  BA in Business Admin                    7.1%  n=28    (2 defaults)
+  Biology                                 6.7%  n=15    (1 defaults)
+  Bach Arts Elem Educ K-6                 6.7%  n=15    (1 defaults)
+  BS Cybersecurity                        6.7%  n=15    (1 defaults)
+  MA Professional Writing                 6.2%  n=16    (1 defaults)
+  Kinesiology                             5.3%  n=38    (2 defaults)
+  MBA in Strategic Leadership             4.8%  n=21    (1 defaults)
+  Health Science                          2.7%  n=37    (1 defaults) ▼
+  MS Clin Mental Health Counslng          2.5%  n=80    (2 defaults) ▼
+  Bach Fine Arts Comic Arts               0.0%  n=11    (0 defaults) ▼
+  BSN Nursing                             0.0%  n=71    (0 defaults) ▼
+  Bach Fine Arts Art: Fine Arts           0.0%  n=10    (0 defaults) ▼
+  Bach Fine Arts Art:Ilustration          0.0%  n=15    (0 defaults) ▼
+  Education: Special Education            0.0%  n=10    (0 defaults) ▼
+  MED: Education                          0.0%  n=16    (0 defaults) ▼
+  MS Human Services                       0.0%  n=10    (0 defaults) ▼
+  MED: Teacher Licensure                  0.0%  n=14    (0 defaults) ▼
+  MFA Dual Focus                          0.0%  n=10    (0 defaults) ▼
+
+── Graduation / Withdrawal Status ──────────────────────────
+  Not graduated                          11.9%  n=573   (68 defaults) ▲
+  Graduated                               4.1%  n=729   (30 defaults) ▼
+  Not withdrawn                           7.5%  n=1233  (92 defaults)
+  Withdrawn                               8.7%  n=69    (6 defaults)
+
+── Income-Driven Repayment (IDR) Policy Finding ────────────
+  IDR plans (IBR/REPAYE/PAYE/SAVE/ICR): 7.5%  (n=1,302)
+  Non-IDR (Standard, Graduated, etc.):  nan%  (n=0)
+
+CSV saved: c:\Users\GFranca-Rocha\OneDrive - New England College\Student Financial Services - BI Files\New Project\FRIS\📂 FRIS-Predictive-Analytics_v2\fris_segmentation.csv
+Chart saved: c:\Users\GFranca-Rocha\OneDrive - New England College\Student Financial Services - BI Files\New Project\FRIS\📂 FRIS-Predictive-Analytics_v2\fris_segmentation.png
+=== DONE ===

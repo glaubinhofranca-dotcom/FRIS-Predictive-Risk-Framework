@@ -1,0 +1,50 @@
+# ============================================================
+# FRIS — Financial Risk Intelligence System
+# New England College · Student Financial Services
+# ============================================================
+#
+# VIRTUAL ENVIRONMENT SETUP (run once)
+# ─────────────────────────────────────
+# Windows (PowerShell):
+#   python -m venv .venv
+#   .venv\Scripts\Activate.ps1
+#
+# Windows (Command Prompt):
+#   python -m venv .venv
+#   .venv\Scripts\activate.bat
+#
+# macOS / Linux:
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#
+# INSTALL DEPENDENCIES (after activating the environment):
+#   pip install -r requirements.txt
+#
+# VERIFY ENVIRONMENT IS ACTIVE:
+#   The prompt will show (.venv) on the left.
+#   To deactivate at any time: deactivate
+#
+# RUN THE PIPELINE:
+#   python fris_etl.py
+#   python fris_model.py
+#   python fris_segmentation.py
+# ============================================================
+
+# Core data science
+pandas==2.2.2
+numpy==1.26.4
+
+# Machine learning
+scikit-learn==1.4.2
+
+# Model persistence
+joblib==1.4.2
+
+# Visualization
+matplotlib==3.9.0
+
+# Excel file support (for Borrower Details.xlsx)
+openpyxl==3.1.2
+
+# Optional: faster Excel reading
+# xlrd==2.0.1
