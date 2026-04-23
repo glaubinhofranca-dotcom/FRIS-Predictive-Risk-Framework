@@ -7,31 +7,49 @@ New England College · Student Financial Services
 
 ## Executive Summary
 
-The **Financial Risk Intelligence System (FRIS)** is a machine learning framework designed to **predict student federal loan default risk** using academic, enrollment, and financial indicators.
+The **Financial Risk Intelligence System (FRIS)** is a machine learning framework designed to **predict student federal loan default risk** using institutional data.
 
-Unlike traditional reactive approaches, FRIS enables **early identification of at-risk borrowers**, allowing institutions to intervene **before delinquency escalates to default (270+ days)**.
+Built on a dataset of **1,302 borrowers**, FRIS enables early identification of at-risk students, allowing institutions to intervene **before delinquency escalates to default (270+ days)**.
 
-This project demonstrates how data science can be operationalized within higher education to improve **financial outcomes, compliance, and institutional risk management**.
+This system moves beyond reactive monitoring toward **proactive, data-driven financial risk prevention** in higher education.
+
+---
+
+## Dataset Overview
+
+* Total borrowers: **1,302**
+* Default rate: **7.5% (98 defaults)**
+* Undergraduate: **992 (76.2%)**
+* Graduate: **310 (23.8%)**
+
+Default rate by level:
+
+* Undergraduate: **8.5%**
+* Graduate: **4.5%**
+
+All features achieved **100% completeness**, ensuring high-quality model training.
 
 ---
 
 ## Problem Statement
 
-Federal student loan default presents systemic challenges:
+Student loan default creates systemic risks:
 
-* **Students** face long-term financial harm (credit damage, wage garnishment, loss of aid eligibility)
-* **Institutions** risk increased Cohort Default Rates (CDR) and potential loss of Title IV funding
-* Existing processes are **reactive**, acting only after significant delinquency
+* Financial hardship for borrowers
+* Increased institutional Cohort Default Rates (CDR)
+* Regulatory exposure (Title IV eligibility)
+
+Most institutions act **after delinquency occurs** — FRIS addresses this gap.
 
 ---
 
 ## Solution
 
-FRIS introduces a **proactive, data-driven framework** that:
+FRIS provides a **predictive and actionable framework** that:
 
-* Identifies risk patterns **early in the student lifecycle**
-* Quantifies default probability using machine learning
-* Enables targeted intervention strategies for Student Financial Services teams
+* Identifies high-risk borrowers early
+* Quantifies default probability
+* Enables targeted intervention strategies
 
 ---
 
@@ -39,19 +57,17 @@ FRIS introduces a **proactive, data-driven framework** that:
 
 ### Target Definition
 
-A borrower is classified as **default** if:
+Default is defined as:
 
 ```
 Days Delinquent > 270
 ```
 
-Aligned with the U.S. Department of Education federal definition.
+Aligned with federal regulation (34 CFR § 682.200).
 
 ---
 
 ### Feature Engineering
-
-FRIS integrates multi-dimensional data:
 
 **Academic & Enrollment**
 
@@ -59,7 +75,7 @@ FRIS integrates multi-dimensional data:
 * Credits earned
 * Graduation status
 * Withdrawal indicators
-* Academic level (Undergraduate / Graduate)
+* Academic level (LEVL_CODE — Banner authoritative field)
 * Program and student type
 
 **Financial & Loan Data**
@@ -67,26 +83,15 @@ FRIS integrates multi-dimensional data:
 * Number of loans
 * Original loan amount
 * Current balance
-* Payment plan status
+* Payment plan
 
 ---
 
 ### Modeling Approach
 
-* **Preprocessing**
-
-  * Median imputation (numeric)
-  * Constant imputation + One-Hot Encoding (categorical)
-
-* **Class Imbalance Handling**
-
-  * `class_weight="balanced"`
-
-* **Validation Strategy**
-
-  * 5-fold Stratified Cross-Validation
-
-* **Models Evaluated**
+* 5-fold Stratified Cross-Validation
+* Class imbalance handled with `class_weight="balanced"`
+* Models evaluated:
 
   * Logistic Regression
   * Random Forest
@@ -94,142 +99,134 @@ FRIS integrates multi-dimensional data:
 
 ---
 
-## Results
+## Model Performance
 
 **Best Model: Random Forest**
 
 | Metric    | Value             |
 | --------- | ----------------- |
-| AUC       | **0.740 ± 0.032** |
-| F1 Score  | 0.279             |
-| Precision | 0.210             |
-| Recall    | 0.427             |
+| AUC       | **0.772 ± 0.055** |
+| F1 Score  | 0.310             |
+| Precision | 0.226             |
+| Recall    | 0.499             |
+| Accuracy  | 0.826             |
+
+Subgroup performance:
+
+* Undergraduate: **AUC = 0.796**
+* Graduate: **AUC = 0.564**
 
 ---
 
-### Key Predictors
+## Key Predictors of Default Risk
 
-Top drivers of default risk include:
+Top features (aggregated importance):
 
-* GPA
-* Credits earned
-* Loan balance
-* Original loan amount
-* Graduation status
-* Number of loans
+* Payment plan → **18.6%**
+* Program → **16.1%**
+* Campus → **12.0%**
+* GPA → **11.9%**
+* Credits earned → **9.4%**
+* Current balance → **7.7%**
+
+👉 Default risk is driven by a combination of:
+**financial behavior + academic performance + institutional context**
 
 ---
 
-### Segmentation Insights
+## Segmentation Insights
 
-FRIS reveals high-impact risk segments:
+FRIS identifies high-risk populations:
 
-* Low GPA populations show significantly elevated default risk
-* Non-graduated students exhibit materially higher default rates
-* Specific student types and enrollment patterns concentrate risk
+### Academic Performance
 
-These insights enable **targeted, high-efficiency interventions**.
+* GPA < 2.0 → **16.6% default rate**
+* GPA 3.5–4.0 → **3.0%**
+
+### Student Type
+
+* Returning students → **33.3% (highest risk segment)**
+
+### Graduation Impact
+
+* Not graduated → **11.9%**
+* Graduated → **4.1%**
+
+### Program-Level Risk
+
+Several programs exceed **20% default rate**, indicating structural risk concentrations.
+
+---
+
+## Policy Insight (Critical Finding)
+
+Income-Driven Repayment (IDR) plans show:
+
+* **0.7% default rate (IDR borrowers)**
+* **9.6% default rate (non-IDR borrowers)**
+
+👉 This highlights a **clear policy lever for default prevention**
 
 ---
 
 ## Impact
 
-FRIS supports institutions in:
+FRIS enables:
 
-* Reducing federal student loan default rates
-* Improving student financial outcomes
-* Protecting Title IV eligibility
-* Transitioning from reactive to proactive risk management
+* Early risk detection
+* Targeted financial interventions
+* Improved student outcomes
+* Reduced institutional default exposure
 
-This framework demonstrates a scalable approach to **data-driven financial risk mitigation in higher education**.
+This framework transforms student financial services from **reactive operations to predictive risk management**.
 
 ---
 
 ## System Architecture
 
 ```
-ETL Pipeline → Feature Engineering → ML Modeling → Evaluation → Deployment Artifact
+ETL → Feature Engineering → ML Modeling → Evaluation → Segmentation
 ```
 
 **Core Components:**
 
-* `fris_etl.py` — Data processing and feature construction
-* `fris_model.py` — Model training, validation, and export
-* `fris_segmentation.py` — Risk segmentation and insights
-
----
-
-## Setup
-
-```bash
-git clone https://github.com/glaubinhofranca-dotcom/FRIS-Predictive-Risk-Framework.git
-cd FRIS-Predictive-Risk-Framework
-
-python -m venv .venv
-.venv\Scripts\activate   # Windows
-# source .venv/bin/activate  # macOS/Linux
-
-pip install -r requirements.txt
-```
-
----
-
-## Usage
-
-```bash
-# Build dataset
-python fris_etl.py
-
-# Train and evaluate model
-python fris_model.py
-
-# Run segmentation analysis
-python fris_segmentation.py
-```
-
----
-
-## Data Privacy & Compliance
-
-This repository **does not contain any real student-level data**.
-
-* All datasets and model artifacts derived from institutional data are excluded via `.gitignore`
-* Only synthetic or non-sensitive data structures are used for demonstration
-* The framework is designed to operate on authorized institutional data sources
-
-This project adheres to **FERPA guidelines**. No personally identifiable information (PII) is included or exposed.
+* `fris_etl.py`
+* `fris_model.py`
+* `fris_segmentation.py`
 
 ---
 
 ## Reproducibility
 
-The project is fully reproducible:
-
-* Fixed dependency versions via `requirements.txt`
-* Modular pipeline structure
-* Clear separation between code and data
+* Modular pipeline
+* Fully reproducible outputs
+* Clean separation of data and code
+* Independent generation of analytical visuals
 
 ---
 
-## Roadmap
+## Data Privacy & Compliance
 
-* Expand model with multi-year historical cohorts
-* Deploy interactive dashboard for institutional use
-* Automate ETL pipelines
-* Integrate with advising and early alert systems
+* No real student data included
+* FERPA-compliant design
+* Institutional data usage restricted to authorized environments
 
 ---
 
 ## Author
 
-**Glauber Franca-Rocha**
+**Glauber Franca Rocha**
 Student Financial Services · New England College
 
-This work is part of ongoing applied research in **financial risk modeling and predictive analytics in higher education systems**.
+Applied research in:
+
+* Predictive analytics
+* Financial risk modeling
+* Higher education systems
 
 ---
 
 ## License
 
-This project is intended for educational and research purposes.
-Institutional data usage is restricted to authorized environments.
+Educational and research use only.
+Institutional data access restricted.
