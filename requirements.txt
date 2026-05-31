@@ -48,3 +48,10 @@ openpyxl==3.1.2
 
 # Optional: faster Excel reading
 # xlrd==2.0.1
+
+# Web application
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+sse-starlette==2.1.0
+aiofiles==23.2.1

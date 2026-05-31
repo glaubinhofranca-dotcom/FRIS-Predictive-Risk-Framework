@@ -1,0 +1,354 @@
+/* ═══════════════════════════════════════════════════════════════
+   FRIS v3 — Dashboard Styles
+   New England College · Student Financial Services
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Variables ─────────────────────────────────────────────── */
+:root {
+  --blue:   #378ADD;
+  --red:    #E24B4A;
+  --green:  #1D9E75;
+  --amber:  #EF9F27;
+  --gray:   #888780;
+  --bg:     #0f1117;
+  --bg2:    #141720;
+  --card:   #1a1d27;
+  --card2:  #1f2334;
+  --border: #2a2e3f;
+  --text:   #e4e6ef;
+  --muted:  #7b7f96;
+  --radius: 10px;
+  --shadow: 0 2px 16px rgba(0,0,0,0.45);
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 15px; }
+
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.85rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-brand { display: flex; align-items: center; gap: 0.9rem; }
+
+.header-logo {
+  font-size: 1.6rem;
+  color: var(--blue);
+  line-height: 1;
+}
+
+.header-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.header-version {
+  font-size: 0.72rem;
+  color: var(--blue);
+  background: rgba(55,138,221,0.15);
+  border: 1px solid rgba(55,138,221,0.3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.header-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.status-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  transition: all 0.3s;
+}
+
+.status-idle    { background: rgba(136,135,128,0.15); color: var(--gray);  border: 1px solid rgba(136,135,128,0.3); }
+.status-running { background: rgba(55,138,221,0.15);  color: var(--blue);  border: 1px solid rgba(55,138,221,0.3); animation: blink 1.4s ease-in-out infinite; }
+.status-done    { background: rgba(29,158,117,0.15);  color: var(--green); border: 1px solid rgba(29,158,117,0.3); }
+.status-error   { background: rgba(226,75,74,0.15);   color: var(--red);   border: 1px solid rgba(226,75,74,0.3); }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* ── Main layout ───────────────────────────────────────────── */
+main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem 2rem 4rem;
+}
+
+.hidden { display: none !important; }
+
+/* ── Upload Zone ───────────────────────────────────────────── */
+#upload-section { padding: 3rem 0; display: flex; flex-direction: column; align-items: center; }
+
+.upload-zone {
+  width: 100%;
+  max-width: 560px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 3.5rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+
+.upload-zone:hover,
+.upload-zone.drag-over {
+  border-color: var(--blue);
+  background: rgba(55,138,221,0.05);
+}
+
+.upload-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+}
+
+.upload-icon { font-size: 2.4rem; margin-bottom: 1rem; color: var(--blue); }
+.upload-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.4rem; }
+.upload-hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.upload-formats { font-size: 0.75rem; color: var(--muted); }
+
+.upload-error {
+  margin-top: 1rem;
+  color: var(--red);
+  font-size: 0.85rem;
+  background: rgba(226,75,74,0.1);
+  border: 1px solid rgba(226,75,74,0.3);
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  max-width: 560px;
+  width: 100%;
+}
+
+/* ── Progress ──────────────────────────────────────────────── */
+#progress-section { padding: 3rem 0; }
+
+.progress-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  max-width: 700px;
+  margin: 0 auto;
+  box-shadow: var(--shadow);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+#progress-label { font-size: 0.9rem; color: var(--muted); }
+#progress-pct   { font-size: 0.85rem; font-weight: 600; color: var(--blue); }
+
+.progress-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1.75rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), #5faee3);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.step-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step-item { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; }
+.step-connector { flex: 1; height: 2px; background: var(--border); margin: 0 4px; margin-bottom: 20px; transition: background 0.3s; }
+.step-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--border);
+  border: 2px solid var(--border);
+  transition: background 0.3s, border-color 0.3s;
+}
+.step-name { font-size: 0.72rem; color: var(--muted); transition: color 0.3s; }
+
+.step-item.running .step-dot   { background: var(--blue); border-color: var(--blue); animation: pulse-dot 1s ease-in-out infinite; }
+.step-item.running .step-name  { color: var(--blue); }
+.step-item.done    .step-dot   { background: var(--green); border-color: var(--green); }
+.step-item.done    .step-name  { color: var(--green); }
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(55,138,221,0.6); }
+  50%       { box-shadow: 0 0 0 6px rgba(55,138,221,0); }
+}
+
+/* ── Dashboard ─────────────────────────────────────────────── */
+.section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 2.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* KPI Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.6rem;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s;
+}
+.kpi-card:hover { transform: translateY(-2px); }
+
+.kpi-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+.kpi-value { font-size: 2rem; font-weight: 800; line-height: 1.1; margin-bottom: 0.35rem; }
+.kpi-sub   { font-size: 0.78rem; color: var(--muted); }
+
+.kpi-warn  { border-color: rgba(239,159,39,0.35); }
+.kpi-warn  .kpi-value { color: var(--amber); }
+.kpi-good  .kpi-value { color: var(--green); }
+.kpi-alert .kpi-value { color: var(--red); }
+
+/* Pulse animation for risk panels */
+@keyframes risk-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(226,75,74,0.5); }
+  50%       { box-shadow: 0 0 0 10px rgba(226,75,74,0); }
+}
+.pulse-red {
+  animation: risk-pulse 2s ease-in-out infinite;
+  border-color: rgba(226,75,74,0.5) !important;
+}
+
+/* Charts */
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 1rem;
+}
+
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.chart-card-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.chart-wrap     { position: relative; height: 260px; }
+.chart-wrap-sm  { height: 220px; }
+
+/* Segmentation grid */
+.seg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1rem;
+}
+
+/* Subgroup badges */
+.subgroup-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.subgroup-badge {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.5rem;
+  min-width: 200px;
+  flex: 0 0 auto;
+}
+
+.subgroup-badge .sg-code  { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.35rem; }
+.subgroup-badge .sg-auc   { font-size: 1.5rem; font-weight: 800; color: var(--blue); }
+.subgroup-badge .sg-sub   { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+/* Distribution table */
+.dist-table { padding: 0.25rem 0; }
+
+.dist-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.dist-row:last-child { border-bottom: none; }
+.dist-col-name  { color: var(--muted); flex: 0 0 160px; }
+.dist-col-vals  { display: flex; gap: 1rem; flex-wrap: wrap; }
+.dist-stat      { display: flex; flex-direction: column; align-items: center; }
+.dist-stat-val  { font-weight: 600; font-size: 0.85rem; }
+.dist-stat-lbl  { font-size: 0.65rem; color: var(--muted); }
+
+/* Full matplotlib charts */
+.full-chart-card { }
+.full-chart-img  { width: 100%; border-radius: 6px; display: block; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  main { padding: 1rem 1rem 3rem; }
+  .charts-row { grid-template-columns: 1fr; }
+  .seg-grid   { grid-template-columns: 1fr; }
+  .kpi-grid   { grid-template-columns: repeat(2, 1fr); }
+  .header-inner { padding: 0.75rem 1rem; }
+}
