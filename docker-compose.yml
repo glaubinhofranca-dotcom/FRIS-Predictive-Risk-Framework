@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  fris:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount host ./data into the container — keeps sensitive student data
+      # out of the Docker image and persists sessions across restarts.
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MPLBACKEND=Agg
+    restart: unless-stopped

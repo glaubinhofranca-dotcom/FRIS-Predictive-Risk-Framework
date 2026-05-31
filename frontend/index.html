@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FRIS v3 — Financial Risk Intelligence System</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════════════════ -->
+<header>
+  <div class="header-inner">
+    <div class="header-brand">
+      <span class="header-logo">◈</span>
+      <div>
+        <div class="header-title">FRIS <span class="header-version">v3</span></div>
+        <div class="header-sub">Financial Risk Intelligence System · New England College</div>
+      </div>
+    </div>
+    <div id="header-status" class="status-badge status-idle">Idle</div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     UPLOAD ZONE
+═══════════════════════════════════════════════════════════════ -->
+<main>
+<section id="upload-section">
+  <div id="upload-zone" class="upload-zone" role="button" tabindex="0"
+       aria-label="Upload borrower data file">
+    <div class="upload-icon">⬆</div>
+    <div class="upload-title">Upload Borrower Data</div>
+    <div class="upload-hint">Drag & drop or click to browse</div>
+    <div class="upload-formats">Accepts: .xlsx · .xls · .csv</div>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv" aria-hidden="true" />
+  </div>
+  <div id="upload-error" class="upload-error hidden"></div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     PIPELINE PROGRESS
+═══════════════════════════════════════════════════════════════ -->
+<section id="progress-section" class="hidden">
+  <div class="progress-card">
+    <div class="progress-header">
+      <span id="progress-label">Initialising pipeline…</span>
+      <span id="progress-pct">0%</span>
+    </div>
+    <div class="progress-track">
+      <div id="progress-fill" class="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="step-track">
+      <div class="step-item" id="step-etl">
+        <div class="step-dot"></div>
+        <div class="step-name">ETL</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" id="step-eda">
+        <div class="step-dot"></div>
+        <div class="step-name">EDA</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" id="step-segmentation">
+        <div class="step-dot"></div>
+        <div class="step-name">Segmentation</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" id="step-model">
+        <div class="step-dot"></div>
+        <div class="step-name">Model</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     DASHBOARD
+═══════════════════════════════════════════════════════════════ -->
+<section id="dashboard-section" class="hidden">
+
+  <!-- KPI Row -->
+  <div class="section-title">Overview</div>
+  <div class="kpi-grid">
+    <div class="kpi-card" id="kpi-borrowers">
+      <div class="kpi-label">Total Borrowers</div>
+      <div class="kpi-value" id="val-borrowers">—</div>
+      <div class="kpi-sub" id="sub-borrowers"></div>
+    </div>
+    <div class="kpi-card kpi-warn" id="kpi-default-rate">
+      <div class="kpi-label">Default Rate</div>
+      <div class="kpi-value" id="val-default-rate">—</div>
+      <div class="kpi-sub" id="sub-default-rate"></div>
+    </div>
+    <div class="kpi-card kpi-good" id="kpi-auc">
+      <div class="kpi-label">Best Model AUC</div>
+      <div class="kpi-value" id="val-auc">—</div>
+      <div class="kpi-sub" id="sub-auc"></div>
+    </div>
+    <div class="kpi-card kpi-alert pulse-red" id="kpi-idr">
+      <div class="kpi-label">IDR Policy Impact</div>
+      <div class="kpi-value" id="val-idr">—</div>
+      <div class="kpi-sub" id="sub-idr"></div>
+    </div>
+  </div>
+
+  <!-- Model Performance + Feature Importance -->
+  <div class="section-title">Model Performance</div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-card-title">AUC Comparison — 5-fold CV</div>
+      <div class="chart-wrap">
+        <canvas id="chart-auc"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Feature Importance (Top 10)</div>
+      <div class="chart-wrap">
+        <canvas id="chart-features"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subgroup AUC -->
+  <div class="section-title">Subgroup AUC by Academic Level</div>
+  <div class="subgroup-grid" id="subgroup-grid"></div>
+
+  <!-- EDA -->
+  <div class="section-title">Exploratory Analysis</div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-card-title">Correlations with Default</div>
+      <div class="chart-wrap chart-wrap-sm">
+        <canvas id="chart-corr"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Key Distributions</div>
+      <div class="dist-table" id="dist-table"></div>
+    </div>
+  </div>
+
+  <!-- Segmentation -->
+  <div class="section-title">Default Rate Segmentation</div>
+  <div class="seg-grid">
+    <div class="chart-card"><div class="chart-card-title">By Academic Level</div>
+      <div class="chart-wrap chart-wrap-sm"><canvas id="seg-level"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-title">By GPA Band</div>
+      <div class="chart-wrap chart-wrap-sm"><canvas id="seg-gpa"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-title">By Student Type</div>
+      <div class="chart-wrap chart-wrap-sm"><canvas id="seg-student-type"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-title">By Campus</div>
+      <div class="chart-wrap chart-wrap-sm"><canvas id="seg-campus"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-title">By Loan Amount</div>
+      <div class="chart-wrap chart-wrap-sm"><canvas id="seg-loan"></canvas></div></div>
+    <div class="chart-card pulse-red" id="seg-idr-card">
+      <div class="chart-card-title">⚠ IDR Policy Finding</div>
+      <div class="chart-wrap chart-wrap-sm"><canvas id="seg-idr"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Graduation / Withdrawal -->
+  <div class="section-title">Graduation &amp; Withdrawal Status</div>
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-card-title">Default Rate by Status</div>
+      <div class="chart-wrap chart-wrap-sm"><canvas id="seg-status"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">Top Programs by Default Rate</div>
+      <div class="chart-wrap" style="height:380px"><canvas id="seg-program"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Full charts from matplotlib -->
+  <div class="section-title">Full Analysis Charts</div>
+  <div class="charts-row">
+    <div class="chart-card full-chart-card">
+      <div class="chart-card-title">Model Evaluation (matplotlib)</div>
+      <img id="img-model" src="" alt="Model results chart" class="full-chart-img" />
+    </div>
+    <div class="chart-card full-chart-card">
+      <div class="chart-card-title">Segmentation Overview (matplotlib)</div>
+      <img id="img-seg" src="" alt="Segmentation chart" class="full-chart-img" />
+    </div>
+  </div>
+
+</section>
+</main>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

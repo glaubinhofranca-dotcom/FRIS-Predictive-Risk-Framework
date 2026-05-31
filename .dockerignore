@@ -1,0 +1,27 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+
+# Sensitive data — never bake into image
+data/sessions/
+*.csv
+*.xlsx
+*.xls
+*.xlsm
+
+# Model artifacts
+*.pkl
+
+# Logs
+*.log
+log.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
