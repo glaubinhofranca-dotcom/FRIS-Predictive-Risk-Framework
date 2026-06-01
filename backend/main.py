@@ -109,7 +109,9 @@ async def run(session_id: str):
             sess["status"] = "error"
             yield {"event": "error", "data": json.dumps({"message": str(exc)})}
 
-    return EventSourceResponse(event_generator())
+    # ping=30 sends an SSE comment every 30s to prevent proxy idle-timeout
+    # (Cloudflare and similar proxies cut connections idle for >100s)
+    return EventSourceResponse(event_generator(), ping=30)
 
 
 @app.get("/api/results")

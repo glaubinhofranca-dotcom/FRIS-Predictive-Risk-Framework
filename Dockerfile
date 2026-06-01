@@ -18,11 +18,15 @@ COPY . .
 # Create sessions directory (will be volume-mounted at runtime)
 RUN mkdir -p /app/data/sessions
 
-EXPOSE 8000
+# Port 7860 is the Hugging Face Spaces default.
+# Override via PORT env variable for other platforms (Render, Railway, Fly.io).
+# docker-compose sets PORT=8000 for local development.
+ENV PORT=7860
+EXPOSE 7860
 
 # MPLBACKEND=Agg is critical — prevents matplotlib from attempting
 # to connect to a display server (which doesn't exist in a container)
 ENV MPLBACKEND=Agg
 ENV PYTHONUNBUFFERED=1
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]
