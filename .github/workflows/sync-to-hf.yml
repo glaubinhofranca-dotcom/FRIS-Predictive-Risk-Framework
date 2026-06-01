@@ -14,6 +14,15 @@ jobs:
         with:
           fetch-depth: 0  # full history so HF receives all commits
 
+      - name: Remove binary files from history (HF rejects PNGs via git)
+        run: |
+          pip install git-filter-repo --quiet
+          git filter-repo \
+            --path fris_model_results.png \
+            --path fris_segmentation.png \
+            --invert-paths \
+            --force
+
       - name: Push to Hugging Face Spaces
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
