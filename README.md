@@ -1,3 +1,14 @@
+---
+title: FRIS v3 Financial Risk Intelligence System
+emoji: 📊
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Predictive analytics for student loan default risk
+---
+
 # FRIS — Financial Risk Intelligence System
 
 **Predictive Analytics for Student Loan Default Risk**
