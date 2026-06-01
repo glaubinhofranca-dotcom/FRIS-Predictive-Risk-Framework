@@ -29,6 +29,25 @@ DEFAULT_DAYS_THRESHOLD = 270  # 34 CFR § 682.200 — federal loan default defin
 
 BAR_SCALE = 5  # chars per percentage point in progress bars
 
+# Canonical column name → human-readable description (used for validation and error messages)
+REQUIRED_COLUMNS: dict[str, str] = {
+    "ID":                        "Student ID",
+    "LEVL_CODE":                 "Academic Level Code (UG / GR) — Banner field",
+    "PROGRAM":                   "Program of Study — Banner field",
+    "MAJR_DESC":                 "Major Description — Banner field",
+    "STYP_DESC":                 "Student Type Description — Banner field",
+    "CAMP_CODE":                 "Campus Code — Banner field",
+    "OVERALL_LGPA_GPA":          "Overall Cumulative GPA — Banner field",
+    "OVERALL_LGPA_HOURS_EARNED": "Total Credits Earned — Banner field",
+    "GRADUATED_IND":             "Graduated Indicator (Y / N) — Banner field",
+    "SFBETRM_ESTS_CODE":         "Enrollment Status Code — Banner field",
+    "Days Delinquent":           "Days Delinquent — loan servicer export",
+    "# of Loans":                "Number of Active Loans — loan servicer export",
+    "Original Loan Amount":      "Original Loan Amount ($) — loan servicer export",
+    "Current Principal Balance": "Current Principal Balance ($) — loan servicer export",
+    "Payment Plan":              "Payment Plan — loan servicer export",
+}
+
 
 def _load_file(path: Path, **kwargs) -> pd.DataFrame:
     if not path.exists():
@@ -43,6 +62,45 @@ def clean_currency(series: pd.Series) -> pd.Series:
         series.astype(str).str.replace(r"[\$,]", "", regex=True),
         errors="coerce",
     )
+
+
+def _normalize_and_validate_columns(data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Strip whitespace from all column names, then match required columns
+    case-insensitively. Renames matched columns to their canonical names.
+    Raises ValueError listing every missing column if any cannot be found.
+    """
+    data.columns = [str(c).strip() for c in data.columns]
+
+    # Build case-insensitive lookup: lowercase -> actual name in the file
+    col_lookup: dict[str, str] = {c.lower(): c for c in data.columns}
+
+    rename_map: dict[str, str] = {}
+    missing: list[str] = []
+
+    for canonical, description in REQUIRED_COLUMNS.items():
+        if canonical in data.columns:
+            continue  # already correct
+        match = col_lookup.get(canonical.lower())
+        if match:
+            rename_map[match] = canonical  # fix casing silently
+        else:
+            missing.append(f"  • {canonical:<30} {description}")
+
+    if missing:
+        missing_block = "\n".join(missing)
+        raise ValueError(
+            f"The uploaded file is missing {len(missing)} required column(s).\n\n"
+            f"{'Column name':<30} {'Description'}\n"
+            f"{'-' * 70}\n"
+            f"{missing_block}\n\n"
+            f"Please verify your file against the template and re-upload."
+        )
+
+    if rename_map:
+        data = data.rename(columns=rename_map)
+
+    return data
 
 
 def run_etl(input_path: Path, session_dir: Path) -> dict:
@@ -68,6 +126,8 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
     print("=== LOADING ===")
     data = _load_file(input_path)
     print(f"  Loaded {input_path.name}: {len(data):,} rows, {len(data.columns)} columns")
+    data = _normalize_and_validate_columns(data)
+    print(f"  Column validation passed — all {len(REQUIRED_COLUMNS)} required columns present")
 
     # -------------------------------------------------------------------------
     # STEP 1 — FILTER ON LEVL_CODE
