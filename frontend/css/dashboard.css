@@ -84,6 +84,32 @@ header {
   margin-top: 1px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-new-analysis {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(55,138,221,0.45);
+  background: rgba(55,138,221,0.1);
+  color: var(--blue);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+.btn-new-analysis:hover {
+  background: rgba(55,138,221,0.2);
+  border-color: var(--blue);
+  transform: translateY(-1px);
+}
+.btn-new-analysis:active { transform: translateY(0); }
+
 .status-badge {
   font-size: 0.7rem;
   font-weight: 600;

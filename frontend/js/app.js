@@ -20,6 +20,7 @@ const C = {
 // ── State ────────────────────────────────────────────────────────────────────
 let sessionId = null;
 let charts = {};
+let activeEventSource = null;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
@@ -61,6 +62,46 @@ function makeChart(id, config) {
   const ctx = $(id).getContext("2d");
   charts[id] = new Chart(ctx, config);
 }
+
+/** Reset all UI state so the user can run a fresh analysis. */
+function resetToUpload() {
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
+  }
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+  sessionId = null;
+  $("file-input").value = "";
+  $("progress-fill").style.width = "0%";
+  $("progress-label").textContent = "Initialising pipeline…";
+  $("progress-pct").textContent = "0%";
+  ["etl", "eda", "segmentation", "model"].forEach(s => {
+    const el = $("step-" + s);
+    if (el) el.className = "step-item";
+  });
+  $("img-model").src = "";
+  $("img-seg").src = "";
+  $("subgroup-grid").innerHTML = "";
+  $("dist-table").innerHTML = "";
+  $("kpi-idr").classList.add("pulse-red");
+  $("seg-idr-card").classList.add("pulse-red");
+  ["val-borrowers", "val-default-rate", "val-auc", "val-idr"].forEach(id => {
+    $(id).textContent = "—";
+  });
+  ["sub-borrowers", "sub-default-rate", "sub-auc", "sub-idr"].forEach(id => {
+    $(id).textContent = "";
+  });
+  hide("dashboard-section");
+  hide("progress-section");
+  clearError();
+  show("upload-section");
+  $("btn-new-analysis").classList.add("hidden");
+  setStatus("Idle", "status-idle");
+}
+
+// ── New Analysis button ──────────────────────────────────────────────────────
+$("btn-new-analysis").addEventListener("click", resetToUpload);
 
 // ── Upload ───────────────────────────────────────────────────────────────────
 const zone = $("upload-zone");
@@ -131,6 +172,7 @@ async function handleFile(file) {
 // ── SSE Pipeline ─────────────────────────────────────────────────────────────
 function startPipeline(sid) {
   const es = new EventSource(`/api/run?session_id=${sid}`);
+  activeEventSource = es;
 
   es.addEventListener("progress", e => {
     const d = JSON.parse(e.data);
@@ -139,7 +181,9 @@ function startPipeline(sid) {
 
   es.addEventListener("complete", e => {
     es.close();
+    activeEventSource = null;
     setStatus("Complete", "status-done");
+    $("btn-new-analysis").classList.remove("hidden");
     loadDashboard(sid);
   });
 
@@ -149,7 +193,9 @@ function startPipeline(sid) {
       showError(`Pipeline error in step "${d.step}": ${d.message}`);
     }
     es.close();
+    activeEventSource = null;
     setStatus("Error", "status-error");
+    $("btn-new-analysis").classList.remove("hidden");
     show("upload-section");
     hide("progress-section");
   });
@@ -159,7 +205,9 @@ function startPipeline(sid) {
     if (es.readyState === EventSource.CLOSED) return;
     showError("Connection lost. Please try again.");
     es.close();
+    activeEventSource = null;
     setStatus("Error", "status-error");
+    $("btn-new-analysis").classList.remove("hidden");
   };
 }
 
