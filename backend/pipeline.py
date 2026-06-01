@@ -27,7 +27,7 @@ def _sse(event: str, data: dict) -> dict:
     return {"event": event, "data": json.dumps(data, default=str)}
 
 
-async def run_pipeline(session_dir: Path, input_path: Path):
+async def run_pipeline(session_dir: Path, input_path: Path, sis_profile: str = "banner"):
     """
     Async generator that yields SSE-compatible dicts.
 
@@ -52,7 +52,7 @@ async def run_pipeline(session_dir: Path, input_path: Path):
     })
     try:
         etl_result = await loop.run_in_executor(
-            executor, run_etl, input_path, session_dir
+            executor, run_etl, input_path, session_dir, sis_profile
         )
     except Exception as exc:
         yield _sse("error", {"step": "etl", "message": str(exc)})

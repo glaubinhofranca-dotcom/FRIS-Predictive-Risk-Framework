@@ -21,6 +21,8 @@ const C = {
 let sessionId = null;
 let charts = {};
 let activeEventSource = null;
+let selectedSis = "banner";
+let sisProfiles = [];  // loaded from /api/sis-profiles
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
@@ -63,6 +65,73 @@ function makeChart(id, config) {
   charts[id] = new Chart(ctx, config);
 }
 
+// ── SIS Selector ─────────────────────────────────────────────────────────────
+
+async function initSisSelector() {
+  try {
+    const resp = await fetch("/api/sis-profiles");
+    if (!resp.ok) return;
+    sisProfiles = await resp.json();
+  } catch {
+    // fallback: minimal inline definition so the UI still works offline
+    sisProfiles = [
+      { key: "banner",     display_name: "Banner",      expected_columns: ["ID", "LEVL_CODE", "OVERALL_LGPA_GPA"] },
+      { key: "workday",    display_name: "Workday",     expected_columns: ["Student ID", "Academic Level", "Cumulative GPA"] },
+      { key: "peoplesoft", display_name: "PeopleSoft",  expected_columns: ["EMPLID", "ACAD_LEVEL_BOT", "CUM_GPA"] },
+      { key: "colleague",  display_name: "Colleague",   expected_columns: ["ID", "STU.ACAD.LEVEL", "GPA"] },
+    ];
+  }
+
+  const container = $("sis-cards");
+  container.innerHTML = "";
+
+  // vendor sub-label per key
+  const vendors = {
+    banner: "Ellucian", workday: "Workday", peoplesoft: "Oracle", colleague: "Ellucian",
+  };
+
+  sisProfiles.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "sis-card" + (p.key === selectedSis ? " selected" : "");
+    card.dataset.key = p.key;
+    card.innerHTML = `
+      <div class="sis-card-name">${p.display_name}</div>
+      <div class="sis-card-vendor">${vendors[p.key] || ""}</div>
+    `;
+    card.addEventListener("click", () => selectSis(p.key));
+    container.appendChild(card);
+  });
+
+  renderSisColumns(selectedSis);
+}
+
+function selectSis(key) {
+  selectedSis = key;
+  document.querySelectorAll(".sis-card").forEach(c => {
+    c.classList.toggle("selected", c.dataset.key === key);
+  });
+  renderSisColumns(key);
+}
+
+function renderSisColumns(key) {
+  const profile = sisProfiles.find(p => p.key === key);
+  const preview = $("sis-columns-preview");
+  if (!profile) { preview.textContent = ""; return; }
+
+  // Loan servicer columns (last 5) vs SIS academic columns
+  const all = profile.expected_columns;
+  const servicerNames = new Set([
+    "Days Delinquent", "# of Loans", "Original Loan Amount",
+    "Current Principal Balance", "Payment Plan",
+  ]);
+  const academic = all.filter(c => !servicerNames.has(c));
+  const servicer = all.filter(c => servicerNames.has(c));
+
+  preview.innerHTML =
+    `<strong>Academic (SIS):</strong> ${academic.join(" · ")}<br>` +
+    `<strong>Loan servicer:</strong> ${servicer.join(" · ")}`;
+}
+
 /** Reset all UI state so the user can run a fresh analysis. */
 function resetToUpload() {
   if (activeEventSource) {
@@ -98,6 +167,7 @@ function resetToUpload() {
   show("upload-section");
   $("btn-new-analysis").classList.add("hidden");
   setStatus("Idle", "status-idle");
+  selectSis("banner");
 }
 
 // ── New Analysis button ──────────────────────────────────────────────────────
@@ -142,6 +212,7 @@ async function handleFile(file) {
 
   const form = new FormData();
   form.append("file", file);
+  form.append("sis_profile", selectedSis);
 
   let resp;
   try {
@@ -488,3 +559,6 @@ function renderImages(sid) {
   $("img-model").src = `/api/static/${sid}/fris_model_results.png`;
   $("img-seg").src   = `/api/static/${sid}/fris_segmentation.png`;
 }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+initSisSelector();

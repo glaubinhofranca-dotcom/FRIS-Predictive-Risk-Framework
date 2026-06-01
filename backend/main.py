@@ -14,12 +14,13 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sse_starlette.sse import EventSourceResponse
 
 from backend.pipeline import run_pipeline
+from fris_sis_profiles import list_profiles
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -56,8 +57,16 @@ async def index():
     return HTMLResponse(content=html)
 
 
+@app.get("/api/sis-profiles")
+async def sis_profiles():
+    return JSONResponse(list_profiles())
+
+
 @app.post("/api/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(
+    file: UploadFile = File(...),
+    sis_profile: str = Form("banner"),
+):
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -77,12 +86,14 @@ async def upload(file: UploadFile = File(...)):
         "status": "uploaded",
         "input_path": input_path,
         "session_dir": session_dir,
+        "sis_profile": sis_profile,
     }
 
     return JSONResponse({
         "session_id": session_id,
         "filename": file.filename,
         "size_bytes": len(contents),
+        "sis_profile": sis_profile,
     })
 
 
@@ -102,6 +113,7 @@ async def run(session_id: str):
             async for event in run_pipeline(
                 session_dir=sess["session_dir"],
                 input_path=sess["input_path"],
+                sis_profile=sess.get("sis_profile", "banner"),
             ):
                 yield event
             sess["status"] = "complete"

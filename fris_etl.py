@@ -7,8 +7,13 @@ CHANGE FROM v2:
     The previous version used the student ID prefix (UG/GR) to filter and classify
     students, which was a proxy. LEVL_CODE is the canonical source in Banner/Ellucian.
 
-PRIMARY SOURCE: Borrower Details.xlsx
-    Consolidated by NEC IT from Banner/Ellucian + loan servicer exports.
+CHANGE FROM v3.0:
+    Multi-SIS support via fris_sis_profiles.py. Each SIS profile defines the column
+    mapping from the source file to internal canonical names. The rest of the pipeline
+    works exclusively with internal names and is SIS-agnostic.
+
+PRIMARY SOURCE: Borrower Details.xlsx (or equivalent export from any supported SIS)
+    Consolidated by institution IT from SIS + loan servicer exports.
     Already deduplicated at the student level.
 
 OUTPUT: dataset_fris.csv
@@ -18,35 +23,15 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+from fris_sis_profiles import get_profile
+
 SCRIPT_DIR = Path(__file__).parent
 
-# Academic level codes in Banner/Ellucian
-# UG = Undergraduate  |  GR = Graduate
-# @00-prefixed IDs = undeposited prospects with no federal loans — excluded at source
-VALID_LEVL_CODES = {"UG", "GR"}
-WITHDRAWN_CODES = {"WD", "W4", "W6", "W7"}
 DEFAULT_DAYS_THRESHOLD = 270  # 34 CFR § 682.200 — federal loan default definition
-
 BAR_SCALE = 5  # chars per percentage point in progress bars
 
-# Canonical column name → human-readable description (used for validation and error messages)
-REQUIRED_COLUMNS: dict[str, str] = {
-    "ID":                        "Student ID",
-    "LEVL_CODE":                 "Academic Level Code (UG / GR) — Banner field",
-    "PROGRAM":                   "Program of Study — Banner field",
-    "MAJR_DESC":                 "Major Description — Banner field",
-    "STYP_DESC":                 "Student Type Description — Banner field",
-    "CAMP_CODE":                 "Campus Code — Banner field",
-    "OVERALL_LGPA_GPA":          "Overall Cumulative GPA — Banner field",
-    "OVERALL_LGPA_HOURS_EARNED": "Total Credits Earned — Banner field",
-    "GRADUATED_IND":             "Graduated Indicator (Y / N) — Banner field",
-    "SFBETRM_ESTS_CODE":         "Enrollment Status Code — Banner field",
-    "Days Delinquent":           "Days Delinquent — loan servicer export",
-    "# of Loans":                "Number of Active Loans — loan servicer export",
-    "Original Loan Amount":      "Original Loan Amount ($) — loan servicer export",
-    "Current Principal Balance": "Current Principal Balance ($) — loan servicer export",
-    "Payment Plan":              "Payment Plan — loan servicer export",
-}
+# Canonical levels after profile normalization
+_CANONICAL_LEVELS = {"UG", "GR"}
 
 
 def _load_file(path: Path, **kwargs) -> pd.DataFrame:
@@ -64,46 +49,58 @@ def clean_currency(series: pd.Series) -> pd.Series:
     )
 
 
-def _normalize_and_validate_columns(data: pd.DataFrame) -> pd.DataFrame:
+def _apply_sis_profile(data: pd.DataFrame, profile: dict) -> pd.DataFrame:
     """
-    Strip whitespace from all column names, then match required columns
-    case-insensitively. Renames matched columns to their canonical names.
-    Raises ValueError listing every missing column if any cannot be found.
+    Rename SIS-specific column names to internal canonical names.
+
+    Steps:
+    1. Strip whitespace from all column names in the uploaded file.
+    2. Case-insensitive match each expected SIS column.
+    3. Rename matched columns to internal names.
+    4. Normalize level values via profile["level_map"] (e.g. "UGRD" → "UG").
+    5. Raise ValueError listing missing SIS columns if any are not found.
     """
     data.columns = [str(c).strip() for c in data.columns]
 
-    # Build case-insensitive lookup: lowercase -> actual name in the file
+    # Build case-insensitive lookup: lowercase → actual name in the uploaded file
     col_lookup: dict[str, str] = {c.lower(): c for c in data.columns}
 
+    column_map: dict[str, str] = profile["column_map"]
     rename_map: dict[str, str] = {}
     missing: list[str] = []
 
-    for canonical, description in REQUIRED_COLUMNS.items():
-        if canonical in data.columns:
-            continue  # already correct
-        match = col_lookup.get(canonical.lower())
-        if match:
-            rename_map[match] = canonical  # fix casing silently
+    for sis_col, internal_name in column_map.items():
+        if sis_col in data.columns:
+            rename_map[sis_col] = internal_name
         else:
-            missing.append(f"  • {canonical:<30} {description}")
+            match = col_lookup.get(sis_col.lower())
+            if match:
+                rename_map[match] = internal_name  # fix casing silently
+            else:
+                missing.append(f"  • {sis_col}")
 
     if missing:
+        sis_name = profile["display_name"]
         missing_block = "\n".join(missing)
         raise ValueError(
-            f"The uploaded file is missing {len(missing)} required column(s).\n\n"
-            f"{'Column name':<30} {'Description'}\n"
-            f"{'-' * 70}\n"
-            f"{missing_block}\n\n"
-            f"Please verify your file against the template and re-upload."
+            f"The uploaded file is missing {len(missing)} column(s) expected for {sis_name}.\n\n"
+            f"Missing columns:\n{missing_block}\n\n"
+            f"Please verify your file matches the {sis_name} export format and re-upload."
         )
 
-    if rename_map:
-        data = data.rename(columns=rename_map)
+    data = data.rename(columns=rename_map)
+
+    # Normalize level to canonical UG / GR using the profile's level_map
+    level_map: dict[str, str] = profile["level_map"]
+    data["level"] = (
+        data["level"].astype(str).str.strip().str.upper()
+        .map(lambda v: level_map.get(v, v))
+    )
 
     return data
 
 
-def run_etl(input_path: Path, session_dir: Path) -> dict:
+def run_etl(input_path: Path, session_dir: Path, sis_profile: str = "banner") -> dict:
     """
     Run the full ETL pipeline.
 
@@ -113,6 +110,8 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
         Path to the raw borrower data file (.xlsx or .csv).
     session_dir : Path
         Directory where dataset_fris.csv will be written.
+    sis_profile : str
+        Key of the SIS profile to use (see fris_sis_profiles.py). Default: "banner".
 
     Returns
     -------
@@ -123,37 +122,38 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
     session_dir.mkdir(parents=True, exist_ok=True)
     input_path = Path(input_path)
 
+    profile = get_profile(sis_profile)
+
     print("=== LOADING ===")
     data = _load_file(input_path)
     print(f"  Loaded {input_path.name}: {len(data):,} rows, {len(data.columns)} columns")
-    data = _normalize_and_validate_columns(data)
-    print(f"  Column validation passed — all {len(REQUIRED_COLUMNS)} required columns present")
+    data = _apply_sis_profile(data, profile)
+    print(f"  SIS profile: {profile['display_name']} — column mapping applied")
 
     # -------------------------------------------------------------------------
-    # STEP 1 — FILTER ON LEVL_CODE
+    # STEP 1 — FILTER ON LEVEL (canonical UG / GR)
     # -------------------------------------------------------------------------
-    print("\n=== STEP 1: FILTER ON LEVL_CODE ===")
+    print("\n=== STEP 1: FILTER ON LEVEL ===")
 
-    data["LEVL_CODE"] = data["LEVL_CODE"].astype(str).str.strip().str.upper()
-    data["ID"] = data["ID"].astype(str).str.strip()
+    data["student_id"] = data["student_id"].astype(str).str.strip()
 
     total_raw = len(data)
 
-    unexpected = data[~data["LEVL_CODE"].isin(VALID_LEVL_CODES)]
+    unexpected = data[~data["level"].isin(_CANONICAL_LEVELS)]
     if len(unexpected) > 0:
-        print(f"\n  Unexpected LEVL_CODE values found ({len(unexpected):,} rows) — will be excluded:")
-        print(unexpected["LEVL_CODE"].value_counts().to_string())
+        print(f"\n  Unexpected level values found ({len(unexpected):,} rows) — will be excluded:")
+        print(unexpected["level"].value_counts().to_string())
         print()
 
-    data = data[data["LEVL_CODE"].isin(VALID_LEVL_CODES)].copy()
+    data = data[data["level"].isin(_CANONICAL_LEVELS)].copy()
 
     print(f"  Total raw records:       {total_raw:,}")
-    print(f"  Excluded (invalid LEVL): {total_raw - len(data):,}")
+    print(f"  Excluded (invalid level): {total_raw - len(data):,}")
     print(f"  Valid population:        {len(data):,} students")
-    print("\n  LEVL_CODE breakdown (from Banner):")
+    print("\n  Level breakdown:")
     levl_breakdown: dict[str, int] = {}
-    for code in sorted(VALID_LEVL_CODES):
-        n = int((data["LEVL_CODE"] == code).sum())
+    for code in sorted(_CANONICAL_LEVELS):
+        n = int((data["level"] == code).sum())
         pct = n / len(data) * 100
         levl_breakdown[code] = n
         print(f"    {code}: {n:,}  ({pct:.1f}%)")
@@ -162,8 +162,8 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
     # STEP 2 — TARGET VARIABLE
     # -------------------------------------------------------------------------
     print("\n=== STEP 2: DEFAULT FLAG ===")
-    data["Days Delinquent"] = pd.to_numeric(data["Days Delinquent"], errors="coerce").fillna(0)
-    data["default_flag"] = (data["Days Delinquent"] > DEFAULT_DAYS_THRESHOLD).astype(int)
+    data["days_delinquent"] = pd.to_numeric(data["days_delinquent"], errors="coerce").fillna(0)
+    data["default_flag"] = (data["days_delinquent"] > DEFAULT_DAYS_THRESHOLD).astype(int)
 
     total = len(data)
     defaults = int(data["default_flag"].sum())
@@ -171,10 +171,12 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
     print(f"  Defaults:   {defaults:,}  ({defaults / total * 100:.1f}%)")
     print(f"  Current:    {total - defaults:,}  ({(total - defaults) / total * 100:.1f}%)")
 
-    print("\n  Default rate by LEVL_CODE:")
+    print("\n  Default rate by level:")
     default_rate_by_level: dict[str, float] = {}
-    for code in sorted(VALID_LEVL_CODES):
-        sub = data[data["LEVL_CODE"] == code]
+    for code in sorted(_CANONICAL_LEVELS):
+        sub = data[data["level"] == code]
+        if len(sub) == 0:
+            continue
         rate = float(sub["default_flag"].mean())
         default_rate_by_level[code] = rate
         print(f"    {code}: {rate:.1%}  ({int(sub['default_flag'].sum())} of {len(sub):,})")
@@ -184,33 +186,33 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
     # -------------------------------------------------------------------------
     print("\n=== STEP 3: FEATURES ===")
 
-    data["student_id"] = data["ID"]
-    data["level"] = data["LEVL_CODE"]
-    data["program"] = data["PROGRAM"].astype(str).str.strip()
-    data["major"] = data["MAJR_DESC"].astype(str).str.strip()
-    data["student_type"] = data["STYP_DESC"].astype(str).str.strip()
-    data["campus_code"] = data["CAMP_CODE"].astype(str).str.strip()
+    data["program"]      = data["program"].astype(str).str.strip()
+    data["major"]        = data["major"].astype(str).str.strip()
+    data["student_type"] = data["student_type"].astype(str).str.strip()
+    data["campus_code"]  = data["campus_code"].astype(str).str.strip()
 
-    data["gpa"] = pd.to_numeric(data["OVERALL_LGPA_GPA"], errors="coerce")
-    data["credits_earned"] = pd.to_numeric(data["OVERALL_LGPA_HOURS_EARNED"], errors="coerce")
-    data["num_loans"] = pd.to_numeric(data["# of Loans"], errors="coerce")
+    data["gpa"]           = pd.to_numeric(data["gpa"], errors="coerce")
+    data["credits_earned"] = pd.to_numeric(data["credits_earned"], errors="coerce")
+    data["num_loans"]     = pd.to_numeric(data["num_loans"], errors="coerce")
 
-    data["original_loan_amount"] = clean_currency(data["Original Loan Amount"])
-    data["current_balance"] = clean_currency(data["Current Principal Balance"])
+    data["original_loan_amount"] = clean_currency(data["original_loan_amount"])
+    data["current_balance"]      = clean_currency(data["current_balance"])
 
-    data["payment_plan"] = data["Payment Plan"].astype(str).str.strip()
+    data["payment_plan"] = data["payment_plan"].astype(str).str.strip()
 
+    grad_true = profile["graduated_true_value"].upper()
     data["graduated"] = (
-        data["GRADUATED_IND"].astype(str).str.strip().str.upper() == "Y"
+        data["graduated_ind"].astype(str).str.strip().str.upper() == grad_true
     ).astype(int)
 
+    withdrawn_codes_upper = {c.upper() for c in profile["withdrawn_codes"]}
     data["withdrawn"] = (
-        data["SFBETRM_ESTS_CODE"].astype(str).str.strip().str.upper()
-        .isin(WITHDRAWN_CODES)
+        data["enrollment_status"].astype(str).str.strip().str.upper()
+        .isin(withdrawn_codes_upper)
     ).astype(int)
 
-    print("\n  Enrollment status (SFBETRM_ESTS_CODE) breakdown:")
-    print(data["SFBETRM_ESTS_CODE"].value_counts().to_string())
+    print("\n  Enrollment status breakdown:")
+    print(data["enrollment_status"].value_counts().to_string())
 
     FEATURES = [
         "level", "program", "major", "student_type", "campus_code",
@@ -240,9 +242,7 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
 
     print(f"  Saved:   {out_path}")
     print(f"  Shape:   {len(dataset):,} rows × {len(final_cols)} columns")
-    print(f"  Level column source: LEVL_CODE (Banner authoritative field)")
-    print("\n  Sample — level value distribution in output dataset:")
-    print(dataset["level"].value_counts().to_string())
+    print(f"  SIS:     {profile['display_name']}")
     print("\n  Ready for fris_model.py")
 
     return {
@@ -256,6 +256,7 @@ def run_etl(input_path: Path, session_dir: Path) -> dict:
         "feature_completeness": feature_completeness,
         "output_path": str(out_path),
         "shape": [len(dataset), len(final_cols)],
+        "sis_profile": sis_profile,
     }
 
 
@@ -263,6 +264,7 @@ if __name__ == "__main__":
     result = run_etl(
         input_path=SCRIPT_DIR / "Borrower Details.xlsx",
         session_dir=SCRIPT_DIR,
+        sis_profile="banner",
     )
     print(f"\n  ETL complete — {result['valid_population']:,} students, "
           f"{result['default_rate']:.1%} default rate")
