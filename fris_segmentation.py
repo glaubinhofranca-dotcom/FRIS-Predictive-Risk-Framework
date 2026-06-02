@@ -19,7 +19,10 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 from pathlib import Path
+from typing import NamedTuple
 from matplotlib.patches import Patch
+
+from fris_config import COLORS, IDR_PATTERN, MIN_N_DEFAULT, MIN_N_PROGRAM
 
 SCRIPT_DIR = Path(__file__).parent
 
@@ -28,26 +31,20 @@ LEVEL_LABELS = {
     "GR": "GR — Graduate",
 }
 
-# IDR detection — Banner stores full plan names, not short codes.
-# Matching on substrings covers all IBR, PAYE, REPAYE, SAVE, ICR variants.
-IDR_PATTERN = (
-    r"income.based repayment"
-    r"|pay as you earn"
-    r"|revised pay as you earn"
-    r"|income contingent"
-    r"|saving on a valuable education"
-)
-
-BLUE  = "#378ADD"
-RED   = "#E24B4A"
-AMBER = "#EF9F27"
-GREEN = "#1D9E75"
-GRAY  = "#888780"
+BLUE  = COLORS["blue"]
+RED   = COLORS["red"]
+AMBER = COLORS["amber"]
+GREEN = COLORS["green"]
+GRAY  = COLORS["gray"]
 
 PCT_FORMATTER = plt.FuncFormatter(lambda x, _: f"{x:.0%}")
 
-MIN_N_DEFAULT = 5
-MIN_N_PROGRAM = 10
+
+class StatusRow(NamedTuple):
+    label: str
+    rate: float
+    n: int
+    defaults: int
 
 
 def _segment(df: pd.DataFrame, group_col: str, label: str, min_n: int = MIN_N_DEFAULT) -> pd.DataFrame:
@@ -71,6 +68,22 @@ def _add_labels(ax, bars, rates) -> None:
         ax.text(bar.get_width() + 0.003,
                 bar.get_y() + bar.get_height() / 2,
                 f"{rate:.1%}", va="center", ha="left", fontsize=8)
+
+
+def _panel(ax, labels, rates, title: str, overall: float,
+           legend: bool = False, small_ticks: bool = False) -> None:
+    """Render a single horizontal-bar segmentation panel."""
+    overall_line = dict(color=GRAY, linestyle="--", linewidth=1, label=f"Overall {overall:.1%}")
+    b = ax.barh(labels, rates, color=_bar_colors(rates, overall), height=0.5)
+    ax.axvline(overall, **overall_line)
+    ax.set_title(title, fontsize=11, fontweight="500")
+    ax.set_xlabel("Default rate")
+    ax.xaxis.set_major_formatter(PCT_FORMATTER)
+    _add_labels(ax, b, rates)
+    if legend:
+        ax.legend(fontsize=8)
+    if small_ticks:
+        ax.tick_params(axis="y", labelsize=8)
 
 
 def run_segmentation(data_path: Path, session_dir: Path) -> dict:
@@ -130,15 +143,6 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
         "Payment plan":      _segment(df, "payment_plan", "Payment plan"),
         "Program":           _segment(df, "program", "Program", min_n=MIN_N_PROGRAM),
     }
-
-    # Graduation / withdrawal (binary flags — built manually)
-    from typing import NamedTuple
-
-    class StatusRow(NamedTuple):
-        label: str
-        rate: float
-        n: int
-        defaults: int
 
     status_rows = [
         StatusRow("Not graduated",  float(df[df["graduated"] == 0]["default_flag"].mean()),
@@ -222,8 +226,6 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
     # -------------------------------------------------------------------------
     # VISUALIZATION — 9 panels
     # -------------------------------------------------------------------------
-    overall_line = dict(color=GRAY, linestyle="--", linewidth=1, label=f"Overall {OVERALL:.1%}")
-
     fig = plt.figure(figsize=(18, 24))
     fig.suptitle(
         f"FRIS v3 — Default Rate Segmentation · New England College\n"
@@ -232,62 +234,73 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
     )
     gs = gridspec.GridSpec(5, 2, figure=fig, hspace=0.55, wspace=0.35)
 
-    def _panel(ax, labels, rates, title, legend=False):
-        b = ax.barh(labels, rates, color=_bar_colors(rates, OVERALL), height=0.5)
-        ax.axvline(OVERALL, **overall_line)
-        ax.set_title(title, fontsize=11, fontweight="500")
-        ax.set_xlabel("Default rate")
-        ax.xaxis.set_major_formatter(PCT_FORMATTER)
-        _add_labels(ax, b, rates)
-        if legend:
-            ax.legend(fontsize=8)
+    gpa_t  = segs["GPA band"].sort_values("GPA band")
+    prog_t = segs["Program"].head(15)
 
-    t = segs["Level (LEVL_CODE)"]
-    _panel(fig.add_subplot(gs[0, 0]), t["Level (LEVL_CODE)"], t["default_rate"],
-           "By academic level (LEVL_CODE · Banner)", legend=True)
+    # Standard panels — driven by a declarative spec list
+    panel_specs = [
+        {"row": 0, "col": 0,
+         "title": "By academic level (LEVL_CODE · Banner)",
+         "labels": segs["Level (LEVL_CODE)"]["Level (LEVL_CODE)"],
+         "rates": segs["Level (LEVL_CODE)"]["default_rate"],
+         "legend": True},
+        {"row": 0, "col": 1,
+         "title": "By student type",
+         "labels": segs["Student type"]["Student type"],
+         "rates": segs["Student type"]["default_rate"],
+         "small_ticks": True},
+        {"row": 1, "col": 0,
+         "title": "By campus code",
+         "labels": segs["Campus"]["Campus"],
+         "rates": segs["Campus"]["default_rate"]},
+        {"row": 1, "col": 1,
+         "title": "By GPA band",
+         "labels": gpa_t["GPA band"],
+         "rates": gpa_t["default_rate"]},
+        {"row": 2, "col": 0,
+         "title": "By original loan amount",
+         "labels": segs["Loan amount"]["Loan amount"],
+         "rates": segs["Loan amount"]["default_rate"]},
+        {"row": 2, "col": 1,
+         "title": "By graduation / withdrawal status",
+         "labels": [r.label for r in status_rows],
+         "rates": [r.rate for r in status_rows]},
+        {"row": 3, "col": 0,
+         "title": "By payment plan · IDR = 0% default (policy finding)",
+         "labels": segs["Payment plan"]["Payment plan"],
+         "rates": segs["Payment plan"]["default_rate"],
+         "small_ticks": True},
+        {"row": 4, "col": slice(None),   # spans both columns
+         "title": "By program · top 15 by default rate (min n=10)",
+         "labels": prog_t["Program"],
+         "rates": prog_t["default_rate"],
+         "small_ticks": True},
+    ]
 
-    t = segs["Student type"]
-    ax = fig.add_subplot(gs[0, 1])
-    _panel(ax, t["Student type"], t["default_rate"], "By student type")
-    ax.tick_params(axis="y", labelsize=8)
+    for spec in panel_specs:
+        ax = fig.add_subplot(gs[spec["row"], spec["col"]])
+        _panel(
+            ax,
+            spec["labels"],
+            spec["rates"],
+            spec["title"],
+            OVERALL,
+            legend=spec.get("legend", False),
+            small_ticks=spec.get("small_ticks", False),
+        )
 
-    t = segs["Campus"]
-    _panel(fig.add_subplot(gs[1, 0]), t["Campus"], t["default_rate"], "By campus code")
-
-    t = segs["GPA band"].sort_values("GPA band")
-    _panel(fig.add_subplot(gs[1, 1]), t["GPA band"], t["default_rate"], "By GPA band")
-
-    t = segs["Loan amount"]
-    _panel(fig.add_subplot(gs[2, 0]), t["Loan amount"], t["default_rate"],
-           "By original loan amount")
-
-    labels = [r.label for r in status_rows]
-    rates = [r.rate for r in status_rows]
-    _panel(fig.add_subplot(gs[2, 1]), labels, rates,
-           "By graduation / withdrawal status")
-
-    t = segs["Payment plan"]
-    ax = fig.add_subplot(gs[3, 0])
-    _panel(ax, t["Payment plan"], t["default_rate"],
-           "By payment plan · IDR = 0% default (policy finding)")
-    ax.tick_params(axis="y", labelsize=8)
-
-    ax = fig.add_subplot(gs[3, 1])
+    # IDR panel — custom colors (GREEN=IDR, RED=non-IDR; not driven by overall threshold)
+    overall_line = dict(color=GRAY, linestyle="--", linewidth=1, label=f"Overall {OVERALL:.1%}")
+    ax_idr = fig.add_subplot(gs[3, 1])
     idr_labels = ["IDR plans\n(IBR / REPAYE / PAYE)", "Non-IDR\n(Standard / Graduated)"]
     idr_rates = [idr_rate, non_idr_rate]
-    b = ax.barh(idr_labels, idr_rates, color=[GREEN, RED], height=0.4)
-    ax.axvline(OVERALL, **overall_line)
-    ax.set_title("IDR policy finding · Income-Driven Repayment", fontsize=11, fontweight="500")
-    ax.set_xlabel("Default rate")
-    ax.xaxis.set_major_formatter(PCT_FORMATTER)
-    _add_labels(ax, b, idr_rates)
-    ax.legend(fontsize=8)
-
-    t = segs["Program"].head(15)
-    ax = fig.add_subplot(gs[4, :])
-    _panel(ax, t["Program"], t["default_rate"],
-           "By program · top 15 by default rate (min n=10)")
-    ax.tick_params(axis="y", labelsize=8)
+    b = ax_idr.barh(idr_labels, idr_rates, color=[GREEN, RED], height=0.4)
+    ax_idr.axvline(OVERALL, **overall_line)
+    ax_idr.set_title("IDR policy finding · Income-Driven Repayment", fontsize=11, fontweight="500")
+    ax_idr.set_xlabel("Default rate")
+    ax_idr.xaxis.set_major_formatter(PCT_FORMATTER)
+    _add_labels(ax_idr, b, idr_rates)
+    ax_idr.legend(fontsize=8)
 
     fig.legend(handles=[
         Patch(color=RED,   label=f"Above average (> {OVERALL+0.03:.0%})"),
@@ -324,13 +337,13 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
         "idr_n": idr_n,
         "non_idr_n": non_idr_n,
         "segments": {
-            "level":       _seg_to_list(segs["Level (LEVL_CODE)"], "Level (LEVL_CODE)"),
-            "student_type": _seg_to_list(segs["Student type"], "Student type"),
-            "campus":      _seg_to_list(segs["Campus"], "Campus"),
-            "gpa_band":    _seg_to_list(segs["GPA band"], "GPA band"),
-            "loan_amount": _seg_to_list(segs["Loan amount"], "Loan amount"),
-            "payment_plan": _seg_to_list(segs["Payment plan"], "Payment plan"),
-            "program":     _seg_to_list(segs["Program"], "Program"),
+            "level":             _seg_to_list(segs["Level (LEVL_CODE)"], "Level (LEVL_CODE)"),
+            "student_type":      _seg_to_list(segs["Student type"], "Student type"),
+            "campus":            _seg_to_list(segs["Campus"], "Campus"),
+            "gpa_band":          _seg_to_list(segs["GPA band"], "GPA band"),
+            "loan_amount":       _seg_to_list(segs["Loan amount"], "Loan amount"),
+            "payment_plan":      _seg_to_list(segs["Payment plan"], "Payment plan"),
+            "program":           _seg_to_list(segs["Program"], "Program"),
             "graduation_status": [
                 {"value": r.label, "n": r.n, "defaults": r.defaults,
                  "default_rate": round(r.rate, 4)}

@@ -23,15 +23,17 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+from fris_config import DEFAULT_DAYS_THRESHOLD, BAR_SCALE
 from fris_sis_profiles import get_profile
+from fris_utils import clean_currency, normalize_str, normalize_str_upper, to_numeric
 
 SCRIPT_DIR = Path(__file__).parent
 
-DEFAULT_DAYS_THRESHOLD = 270  # 34 CFR § 682.200 — federal loan default definition
-BAR_SCALE = 5  # chars per percentage point in progress bars
-
 # Canonical levels after profile normalization
 _CANONICAL_LEVELS = {"UG", "GR"}
+
+# Re-export clean_currency so existing call sites keep working
+__all__ = ["run_etl", "clean_currency"]
 
 
 def _load_file(path: Path, **kwargs) -> pd.DataFrame:
@@ -40,13 +42,6 @@ def _load_file(path: Path, **kwargs) -> pd.DataFrame:
     if path.suffix.lower() in (".xlsx", ".xlsm", ".xls"):
         return pd.read_excel(path, **kwargs)
     return pd.read_csv(path, low_memory=False, **kwargs)
-
-
-def clean_currency(series: pd.Series) -> pd.Series:
-    return pd.to_numeric(
-        series.astype(str).str.replace(r"[\$,]", "", regex=True),
-        errors="coerce",
-    )
 
 
 def _apply_sis_profile(data: pd.DataFrame, profile: dict) -> pd.DataFrame:
@@ -93,7 +88,7 @@ def _apply_sis_profile(data: pd.DataFrame, profile: dict) -> pd.DataFrame:
     # Normalize level to canonical UG / GR using the profile's level_map
     level_map: dict[str, str] = profile["level_map"]
     data["level"] = (
-        data["level"].astype(str).str.strip().str.upper()
+        normalize_str_upper(data["level"])
         .map(lambda v: level_map.get(v, v))
     )
 
@@ -135,7 +130,7 @@ def run_etl(input_path: Path, session_dir: Path, sis_profile: str = "banner") ->
     # -------------------------------------------------------------------------
     print("\n=== STEP 1: FILTER ON LEVEL ===")
 
-    data["student_id"] = data["student_id"].astype(str).str.strip()
+    data["student_id"] = normalize_str(data["student_id"])
 
     total_raw = len(data)
 
@@ -162,7 +157,7 @@ def run_etl(input_path: Path, session_dir: Path, sis_profile: str = "banner") ->
     # STEP 2 — TARGET VARIABLE
     # -------------------------------------------------------------------------
     print("\n=== STEP 2: DEFAULT FLAG ===")
-    data["days_delinquent"] = pd.to_numeric(data["days_delinquent"], errors="coerce").fillna(0)
+    data["days_delinquent"] = to_numeric(data["days_delinquent"]).fillna(0)
     data["default_flag"] = (data["days_delinquent"] > DEFAULT_DAYS_THRESHOLD).astype(int)
 
     total = len(data)
@@ -186,28 +181,27 @@ def run_etl(input_path: Path, session_dir: Path, sis_profile: str = "banner") ->
     # -------------------------------------------------------------------------
     print("\n=== STEP 3: FEATURES ===")
 
-    data["program"]      = data["program"].astype(str).str.strip()
-    data["major"]        = data["major"].astype(str).str.strip()
-    data["student_type"] = data["student_type"].astype(str).str.strip()
-    data["campus_code"]  = data["campus_code"].astype(str).str.strip()
+    data["program"]      = normalize_str(data["program"])
+    data["major"]        = normalize_str(data["major"])
+    data["student_type"] = normalize_str(data["student_type"])
+    data["campus_code"]  = normalize_str(data["campus_code"])
+    data["payment_plan"] = normalize_str(data["payment_plan"])
 
-    data["gpa"]           = pd.to_numeric(data["gpa"], errors="coerce")
-    data["credits_earned"] = pd.to_numeric(data["credits_earned"], errors="coerce")
-    data["num_loans"]     = pd.to_numeric(data["num_loans"], errors="coerce")
+    data["gpa"]            = to_numeric(data["gpa"])
+    data["credits_earned"] = to_numeric(data["credits_earned"])
+    data["num_loans"]      = to_numeric(data["num_loans"])
 
     data["original_loan_amount"] = clean_currency(data["original_loan_amount"])
     data["current_balance"]      = clean_currency(data["current_balance"])
 
-    data["payment_plan"] = data["payment_plan"].astype(str).str.strip()
-
     grad_true = profile["graduated_true_value"].upper()
     data["graduated"] = (
-        data["graduated_ind"].astype(str).str.strip().str.upper() == grad_true
+        normalize_str_upper(data["graduated_ind"]) == grad_true
     ).astype(int)
 
     withdrawn_codes_upper = {c.upper() for c in profile["withdrawn_codes"]}
     data["withdrawn"] = (
-        data["enrollment_status"].astype(str).str.strip().str.upper()
+        normalize_str_upper(data["enrollment_status"])
         .isin(withdrawn_codes_upper)
     ).astype(int)
 
