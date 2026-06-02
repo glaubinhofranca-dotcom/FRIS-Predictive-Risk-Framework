@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 import joblib
 
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 from matplotlib.patches import Patch
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -31,15 +30,16 @@ from sklearn.model_selection import StratifiedKFold, cross_validate, cross_val_p
 from sklearn.metrics import roc_auc_score
 from sklearn.exceptions import ConvergenceWarning
 
+from fris_config import CV_FOLDS, RANDOM_STATE, LEVEL_CODES, COLORS, MODEL_HYPERPARAMS
+
 SCRIPT_DIR = Path(__file__).parent
-CV_FOLDS = 5
-RANDOM_STATE = 42
-LEVEL_CODES = ["UG", "GR"]
 
-# Banner LEVL_CODE values used for sub-group analysis
 
+# ── Model construction ─────────────────────────────────────────────────────────
 
 def _build_models(preprocessor) -> dict:
+    rf = MODEL_HYPERPARAMS["Random Forest"]
+    gb = MODEL_HYPERPARAMS["Gradient Boosting"]
     return {
         "Logistic Regression": Pipeline([
             ("prep", preprocessor),
@@ -52,8 +52,8 @@ def _build_models(preprocessor) -> dict:
         "Random Forest": Pipeline([
             ("prep", preprocessor),
             ("clf", RandomForestClassifier(
-                n_estimators=300,
-                max_depth=8,
+                n_estimators=rf["n_estimators"],
+                max_depth=rf["max_depth"],
                 class_weight="balanced",
                 random_state=RANDOM_STATE,
             )),
@@ -61,39 +61,19 @@ def _build_models(preprocessor) -> dict:
         "Gradient Boosting": Pipeline([
             ("prep", preprocessor),
             ("clf", GradientBoostingClassifier(
-                n_estimators=300,
-                max_depth=4,
-                learning_rate=0.05,
+                n_estimators=gb["n_estimators"],
+                max_depth=gb["max_depth"],
+                learning_rate=gb["learning_rate"],
                 random_state=RANDOM_STATE,
             )),
         ]),
     }
 
 
-def run_model(data_path: Path, session_dir: Path) -> dict:
-    """
-    Train and evaluate all models, save best model and chart.
+# ── Private pipeline steps ─────────────────────────────────────────────────────
 
-    Parameters
-    ----------
-    data_path : Path
-        Path to dataset_fris.csv produced by run_etl().
-    session_dir : Path
-        Directory for output files (PNG + PKL).
-
-    Returns
-    -------
-    dict
-        Model metrics for the API / dashboard.
-    """
-    session_dir = Path(session_dir)
-    session_dir.mkdir(parents=True, exist_ok=True)
-    output_png = session_dir / "fris_model_results.png"
-    model_file = session_dir / "fris_best_model.pkl"
-
-    # -------------------------------------------------------------------------
-    # LOAD
-    # -------------------------------------------------------------------------
+def _load_features(data_path: Path):
+    """Load CSV and return (data, X, y, cat_features, num_features)."""
     print("=== LOADING DATA ===")
     data = pd.read_csv(data_path, low_memory=False)
     print(f"  Rows: {len(data):,}  |  Columns: {len(data.columns)}")
@@ -102,34 +82,30 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
     print(f"\n  Level distribution (LEVL_CODE from Banner):")
     print(data["level"].value_counts().to_string())
 
-    # -------------------------------------------------------------------------
-    # FEATURE SELECTION
-    # -------------------------------------------------------------------------
-    CAT_FEATURES = [col for col in [
+    cat_features = [col for col in [
         "level", "program", "student_type", "campus_code", "payment_plan",
     ] if col in data.columns]
 
     # NOTE: current_balance has partial leakage risk — reflects repayment behavior.
     # Valid for retrospective analysis. Review before prospective scoring.
-    NUM_FEATURES = [col for col in [
+    num_features = [col for col in [
         "gpa", "graduated", "withdrawn", "credits_earned",
         "num_loans", "original_loan_amount", "current_balance",
     ] if col in data.columns]
 
-    ALL_FEATURES = CAT_FEATURES + NUM_FEATURES
-    TARGET = "default_flag"
+    print(f"\n  Categorical features ({len(cat_features)}): {cat_features}")
+    print(f"  Numeric features    ({len(num_features)}): {num_features}")
 
-    print(f"\n  Categorical features ({len(CAT_FEATURES)}): {CAT_FEATURES}")
-    print(f"  Numeric features    ({len(NUM_FEATURES)}): {NUM_FEATURES}")
-
-    data = data.dropna(subset=[TARGET])
-    X = data[ALL_FEATURES]
-    y = data[TARGET]
+    data = data.dropna(subset=["default_flag"])
+    X = data[cat_features + num_features]
+    y = data["default_flag"]
     print(f"\n  Training rows: {len(X):,} | Class balance: {y.value_counts().to_dict()}")
 
-    # -------------------------------------------------------------------------
-    # PREPROCESSING
-    # -------------------------------------------------------------------------
+    return data, X, y, cat_features, num_features
+
+
+def _build_preprocessor(num_features: list, cat_features: list) -> ColumnTransformer:
+    """Build ColumnTransformer with imputation + scaling/encoding."""
     numeric_transformer = Pipeline([
         ("imputer", SimpleImputer(strategy="median")),
         ("scaler", StandardScaler()),
@@ -138,21 +114,16 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
         ("imputer", SimpleImputer(strategy="constant", fill_value="Unknown")),
         ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
     ])
-    preprocessor = ColumnTransformer([
-        ("num", numeric_transformer, NUM_FEATURES),
-        ("cat", categorical_transformer, CAT_FEATURES),
+    return ColumnTransformer([
+        ("num", numeric_transformer, num_features),
+        ("cat", categorical_transformer, cat_features),
     ])
 
-    models = _build_models(preprocessor)
 
-    # -------------------------------------------------------------------------
-    # CROSS-VALIDATION
-    # -------------------------------------------------------------------------
-    print(f"\n=== CROSS-VALIDATION ({CV_FOLDS}-fold stratified) ===\n")
-    cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+def _cross_validate_models(models: dict, X, y, cv) -> dict:
+    """Run stratified CV for each model and return per-metric score arrays."""
     scoring = ["roc_auc", "f1", "precision", "recall", "accuracy"]
     cv_results: dict[str, dict] = {}
-
     for name, model in models.items():
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -167,35 +138,33 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
         print(f"  Precision: {r['precision'].mean():.3f} ± {r['precision'].std():.3f}")
         print(f"  Recall:    {r['recall'].mean():.3f} ± {r['recall'].std():.3f}")
         print(f"  Accuracy:  {r['accuracy'].mean():.3f} ± {r['accuracy'].std():.3f}")
+    return cv_results
 
-    best_name = max(cv_results, key=lambda n: cv_results[n]["roc_auc"].mean())
-    print(f"\n  Best model by AUC: {best_name}")
 
-    # -------------------------------------------------------------------------
-    # RETRAIN ON FULL DATASET
-    # -------------------------------------------------------------------------
-    print(f"\n=== TRAINING BEST MODEL ({best_name}) — full dataset ===")
+def _retrain_best(models: dict, best_name: str, X, y):
+    """Retrain the best model on the full dataset and return the fitted model."""
     best_model = models[best_name]
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=ConvergenceWarning)
         best_model.fit(X, y)
-    joblib.dump(best_model, model_file)
-    print(f"  Saved: {model_file}")
+    return best_model
 
-    # -------------------------------------------------------------------------
-    # FEATURE IMPORTANCE
-    # -------------------------------------------------------------------------
-    print("\n=== TOP 15 FEATURES ===")
+
+def _feature_importance(best_model, num_features: list, cat_features: list):
+    """
+    Extract raw importances and aggregate them back to pre-OHE feature names.
+
+    Returns (imp_series, agg_series) both sorted descending.
+    """
     clf = best_model.named_steps["clf"]
     prep = best_model.named_steps["prep"]
 
-    num_names = NUM_FEATURES
     cat_names = list(
         prep.named_transformers_["cat"]
         .named_steps["encoder"]
-        .get_feature_names_out(CAT_FEATURES)
+        .get_feature_names_out(cat_features)
     )
-    feature_names = num_names + cat_names
+    feature_names = num_features + cat_names
 
     if hasattr(clf, "feature_importances_"):
         imp = pd.Series(clf.feature_importances_, index=feature_names).sort_values(ascending=False)
@@ -206,28 +175,20 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
             f"Classifier {type(clf).__name__} has no interpretable feature importances."
         )
 
-    for feat, val in imp.head(15).items():
-        bar = "█" * int(val / imp.iloc[0] * 40)
-        print(f"  {feat:<42} {val:.4f}  {bar}")
-
-    print("\n  Aggregated importance by feature (pre-OHE):")
     agg: dict[str, float] = {}
     for feat, val in imp.items():
-        root = next((c for c in CAT_FEATURES if feat.startswith(c + "_")), None)
-        if root is None and feat in NUM_FEATURES:
+        root = next((c for c in cat_features if feat.startswith(c + "_")), None)
+        if root is None and feat in num_features:
             root = feat
         if root:
             agg[root] = agg.get(root, 0) + float(val)
 
     agg_series = pd.Series(agg).sort_values(ascending=False)
-    for feat, val in agg_series.items():
-        bar = "█" * int(val / agg_series.iloc[0] * 40)
-        print(f"  {feat:<25} {val:.4f}  ({val * 100:.1f}%)  {bar}")
+    return imp, agg_series
 
-    # -------------------------------------------------------------------------
-    # SUB-GROUP AUC BY LEVL_CODE
-    # -------------------------------------------------------------------------
-    print("\n=== SUB-GROUP AUC BY LEVL_CODE ===")
+
+def _compute_subgroup_auc(best_model, X, y, data, cv) -> dict:
+    """Compute OOF AUC per LEVL_CODE subgroup via cross_val_predict."""
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=ConvergenceWarning)
         oof_proba = cross_val_predict(
@@ -256,30 +217,34 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
         }
         print(f"  {code}: AUC={auc:.3f} | n={n:,} | defaults={d} ({d/n:.1%})")
 
-    # -------------------------------------------------------------------------
-    # VISUALIZATION
-    # -------------------------------------------------------------------------
-    names = list(models.keys())
+    return subgroup_auc
+
+
+def _plot_results(cv_results: dict, best_name: str, agg_series: pd.Series,
+                  output_png: Path) -> None:
+    """Render model benchmark + feature importance chart and save to output_png."""
+    C = COLORS
+    names = list(cv_results.keys())
     means = [cv_results[n]["roc_auc"].mean() for n in names]
     stds = [cv_results[n]["roc_auc"].std() for n in names]
-    colors = ["#378ADD" if n == best_name else "#B4B2A9" for n in names]
-    edge_colors = ["#185FA5" if n == best_name else "#888780" for n in names]
+    bar_colors = [C["blue"] if n == best_name else C["gray_light"] for n in names]
+    edge_colors = [C["blue_dark"] if n == best_name else C["gray"] for n in names]
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.5))
     fig.suptitle(
-        f"FRIS v3 — Model Evaluation (LEVL_CODE level)",
+        "FRIS v3 — Model Evaluation (LEVL_CODE level)",
         fontsize=12, fontweight="bold",
     )
 
     ax = axes[0]
     x_pos = np.arange(len(names))
-    ax.bar(x_pos, means, color=colors, edgecolor=edge_colors, linewidth=1.5, width=0.45)
-    ax.errorbar(x_pos, means, yerr=stds, fmt="none", ecolor="#5F5E5A",
+    ax.bar(x_pos, means, color=bar_colors, edgecolor=edge_colors, linewidth=1.5, width=0.45)
+    ax.errorbar(x_pos, means, yerr=stds, fmt="none", ecolor=C["text_muted"],
                 elinewidth=1.5, capsize=6, capthick=1.5)
 
     for i, (m, s) in enumerate(zip(means, stds)):
         suffix = "  ✓ selected" if names[i] == best_name else ""
-        color = "#185FA5" if names[i] == best_name else "#5F5E5A"
+        color = C["blue_dark"] if names[i] == best_name else C["text_muted"]
         ax.text(x_pos[i], m + s + 0.006, f"{m:.3f}{suffix}",
                 ha="center", va="bottom", fontsize=10,
                 color=color, fontweight="bold" if names[i] == best_name else "normal")
@@ -290,7 +255,7 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
     ax.set_yticks([0.60, 0.65, 0.70, 0.75, 0.80])
     ax.set_ylabel("AUC-ROC")
     ax.set_title(f"Model benchmarking · {CV_FOLDS}-fold stratified CV")
-    ax.axhline(0.5, color="#B4B2A9", linestyle="--", alpha=0.5, linewidth=0.8)
+    ax.axhline(0.5, color=C["gray_light"], linestyle="--", alpha=0.5, linewidth=0.8)
     ax.spines[["top", "right", "left"]].set_visible(False)
     ax.grid(axis="y", alpha=0.25)
 
@@ -298,13 +263,13 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
     top = agg_series.head(10)
     academic = {"gpa", "graduated", "credits_earned", "withdrawn", "level"}
     loan_fin = {"num_loans", "original_loan_amount", "current_balance"}
-    bar_colors_feat = [
-        "#378ADD" if f in academic else "#1D9E75" if f in loan_fin else "#B4B2A9"
+    feat_colors = [
+        C["blue"] if f in academic else C["green"] if f in loan_fin else C["gray_light"]
         for f in top.index
     ]
 
     bars2 = ax2.barh(top.index[::-1], top.values[::-1],
-                     color=bar_colors_feat[::-1], height=0.55)
+                     color=feat_colors[::-1], height=0.55)
     ax2.set_xlabel("Feature importance (aggregated)")
     ax2.set_title(f"Top 10 features · {best_name}\n(LEVL_CODE → 'level' column)")
     ax2.spines[["top", "right", "bottom"]].set_visible(False)
@@ -316,37 +281,89 @@ def run_model(data_path: Path, session_dir: Path) -> dict:
                  f"{val * 100:.1f}%", va="center", fontsize=8)
 
     ax2.legend(handles=[
-        Patch(color="#378ADD", label="Academic / enrollment"),
-        Patch(color="#1D9E75", label="Loan / financial"),
-        Patch(color="#B4B2A9", label="Institutional / contextual"),
+        Patch(color=C["blue"],       label="Academic / enrollment"),
+        Patch(color=C["green"],      label="Loan / financial"),
+        Patch(color=C["gray_light"], label="Institutional / contextual"),
     ], loc="lower right", fontsize=8)
 
     plt.tight_layout()
     plt.savefig(output_png, dpi=150, bbox_inches="tight")
     plt.close("all")
+
+
+# ── Public entry point ─────────────────────────────────────────────────────────
+
+def run_model(data_path: Path, session_dir: Path) -> dict:
+    """
+    Train and evaluate all models, save best model and chart.
+
+    Parameters
+    ----------
+    data_path : Path
+        Path to dataset_fris.csv produced by run_etl().
+    session_dir : Path
+        Directory for output files (PNG + PKL).
+
+    Returns
+    -------
+    dict
+        Model metrics for the API / dashboard.
+    """
+    session_dir = Path(session_dir)
+    session_dir.mkdir(parents=True, exist_ok=True)
+    output_png = session_dir / "fris_model_results.png"
+    model_file = session_dir / "fris_best_model.pkl"
+
+    data, X, y, cat_features, num_features = _load_features(data_path)
+    preprocessor = _build_preprocessor(num_features, cat_features)
+    models = _build_models(preprocessor)
+
+    print(f"\n=== CROSS-VALIDATION ({CV_FOLDS}-fold stratified) ===\n")
+    cv = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+    cv_results = _cross_validate_models(models, X, y, cv)
+
+    best_name = max(cv_results, key=lambda n: cv_results[n]["roc_auc"].mean())
+    print(f"\n  Best model by AUC: {best_name}")
+
+    print(f"\n=== TRAINING BEST MODEL ({best_name}) — full dataset ===")
+    best_model = _retrain_best(models, best_name, X, y)
+    joblib.dump(best_model, model_file)
+    print(f"  Saved: {model_file}")
+
+    print("\n=== TOP 15 FEATURES ===")
+    imp, agg_series = _feature_importance(best_model, num_features, cat_features)
+    for feat, val in imp.head(15).items():
+        bar = "█" * int(val / imp.iloc[0] * 40)
+        print(f"  {feat:<42} {val:.4f}  {bar}")
+    print("\n  Aggregated importance by feature (pre-OHE):")
+    for feat, val in agg_series.items():
+        bar = "█" * int(val / agg_series.iloc[0] * 40)
+        print(f"  {feat:<25} {val:.4f}  ({val * 100:.1f}%)  {bar}")
+
+    print("\n=== SUB-GROUP AUC BY LEVL_CODE ===")
+    subgroup_auc = _compute_subgroup_auc(best_model, X, y, data, cv)
+
+    _plot_results(cv_results, best_name, agg_series, output_png)
     print(f"\n  Chart saved: {output_png}")
     print("=== DONE ===")
 
-    # -------------------------------------------------------------------------
-    # BUILD RETURN DICT (all numpy types converted to native Python)
-    # -------------------------------------------------------------------------
-    model_results_out: dict[str, dict] = {}
-    for name, r in cv_results.items():
-        model_results_out[name] = {
-            "roc_auc_mean": round(float(r["roc_auc"].mean()), 4),
-            "roc_auc_std":  round(float(r["roc_auc"].std()), 4),
-            "f1_mean":       round(float(r["f1"].mean()), 4),
-            "f1_std":        round(float(r["f1"].std()), 4),
-            "precision_mean": round(float(r["precision"].mean()), 4),
-            "precision_std":  round(float(r["precision"].std()), 4),
-            "recall_mean":   round(float(r["recall"].mean()), 4),
-            "recall_std":    round(float(r["recall"].std()), 4),
-            "accuracy_mean": round(float(r["accuracy"].mean()), 4),
-            "accuracy_std":  round(float(r["accuracy"].std()), 4),
+    model_results_out = {
+        name: {
+            "roc_auc_mean":    round(float(r["roc_auc"].mean()), 4),
+            "roc_auc_std":     round(float(r["roc_auc"].std()), 4),
+            "f1_mean":         round(float(r["f1"].mean()), 4),
+            "f1_std":          round(float(r["f1"].std()), 4),
+            "precision_mean":  round(float(r["precision"].mean()), 4),
+            "precision_std":   round(float(r["precision"].std()), 4),
+            "recall_mean":     round(float(r["recall"].mean()), 4),
+            "recall_std":      round(float(r["recall"].std()), 4),
+            "accuracy_mean":   round(float(r["accuracy"].mean()), 4),
+            "accuracy_std":    round(float(r["accuracy"].std()), 4),
         }
+        for name, r in cv_results.items()
+    }
 
     class_vc = y.value_counts()
-
     return {
         "best_model": best_name,
         "cv_folds": CV_FOLDS,
