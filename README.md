@@ -26,7 +26,91 @@ This system moves beyond reactive monitoring toward **proactive, data-driven fin
 
 ---
 
+## System Architecture
+
+```
+Upload file → ETL → EDA → Segmentation → Model → Dashboard
+```
+
+### Pipeline modules
+
+| File | Responsibility |
+|---|---|
+| `fris_config.py` | Single source of truth for all thresholds, hyperparameters, and color palette |
+| `fris_utils.py` | Shared data-cleaning helpers (`normalize_str`, `clean_currency`, etc.) |
+| `fris_sis_profiles.py` | SIS adapter definitions (Banner, Workday, PeopleSoft, Colleague) |
+| `fris_etl.py` | Load, apply SIS profile, filter, engineer features, output `dataset_fris.csv` |
+| `fris_eda.py` | Distributions, missing values, correlations with default flag |
+| `fris_segmentation.py` | Default rate by 8 dimensions + IDR policy finding |
+| `fris_model.py` | 5-fold CV across 3 classifiers, feature importance, subgroup AUC |
+
+### Web application
+
+| Path | Responsibility |
+|---|---|
+| `backend/main.py` | FastAPI routes: upload, SSE stream, results, chart serving |
+| `backend/pipeline.py` | Async orchestrator — runs pipeline steps via `ThreadPoolExecutor`, streams SSE events |
+| `backend/schemas.py` | Pydantic models for pipeline results (`EtlResult`, `ModelResult`, etc.) |
+| `frontend/index.html` | Single-page dashboard |
+| `frontend/js/app.js` | File upload, SSE listener, Chart.js rendering |
+| `frontend/css/dashboard.css` | Responsive styling |
+
+---
+
+## Multi-SIS Support
+
+FRIS supports four Student Information Systems out of the box. Select the profile when uploading — the pipeline handles column renaming automatically; all downstream code works exclusively with internal canonical names.
+
+| Profile key | System | Notes |
+|---|---|---|
+| `banner` | Banner / Ellucian | Default. Used by ~1,200 US institutions including NEC |
+| `workday` | Workday Student | Column names from Workday report builder |
+| `peoplesoft` | PeopleSoft / Oracle | Column names from PS Query / SQR exports |
+| `colleague` | Colleague / Ellucian | Used by ~700 US institutions |
+
+To add a new SIS, add an entry to `fris_sis_profiles.py` — no other file needs to change.
+
+---
+
+## Getting Started
+
+### Run with Docker (recommended)
+
+```bash
+docker compose up --build
+# Open http://localhost:7860
+```
+
+### Run locally
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn backend.main:app --reload --port 7860
+# Open http://localhost:7860
+```
+
+### Run tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+
+### Run the pipeline from the CLI
+
+```bash
+python fris_etl.py          # produces dataset_fris.csv
+python fris_eda.py          # prints distribution stats
+python fris_segmentation.py # produces fris_segmentation.png + .csv
+python fris_model.py        # produces fris_model_results.png + .pkl
+```
+
+---
+
 ## Dataset Overview
+
+> Numbers below are from the NEC production run (2024). Your institution's results will differ.
 
 * Total borrowers: **1,302**
 * Default rate: **7.5% (98 defaults)**
@@ -76,8 +160,6 @@ Days Delinquent > 270
 
 Aligned with federal regulation (34 CFR § 682.200).
 
----
-
 ### Feature Engineering
 
 **Academic & Enrollment**
@@ -86,33 +168,32 @@ Aligned with federal regulation (34 CFR § 682.200).
 * Credits earned
 * Graduation status
 * Withdrawal indicators
-* Academic level (LEVL_CODE — Banner authoritative field)
+* Academic level (LEVL\_CODE — Banner authoritative field)
 * Program and student type
 
 **Financial & Loan Data**
 
 * Number of loans
 * Original loan amount
-* Current balance
+* Current balance ⚠️ *partial leakage risk for prospective scoring — see `fris_config.py`*
 * Payment plan
-
----
 
 ### Modeling Approach
 
 * 5-fold Stratified Cross-Validation
 * Class imbalance handled with `class_weight="balanced"`
 * Models evaluated:
-
   * Logistic Regression
   * Random Forest
   * Gradient Boosting
+
+Hyperparameters and CV settings are centralized in `fris_config.py`.
 
 ---
 
 ## Model Performance
 
-**Best Model: Random Forest**
+> NEC run — Random Forest selected as best model.
 
 | Metric    | Value             |
 | --------- | ----------------- |
@@ -131,7 +212,7 @@ Subgroup performance:
 
 ## Key Predictors of Default Risk
 
-Top features (aggregated importance):
+Top features (aggregated importance, NEC run):
 
 * Payment plan → **18.6%**
 * Program → **16.1%**
@@ -140,14 +221,14 @@ Top features (aggregated importance):
 * Credits earned → **9.4%**
 * Current balance → **7.7%**
 
-👉 Default risk is driven by a combination of:
+Default risk is driven by a combination of:
 **financial behavior + academic performance + institutional context**
 
 ---
 
 ## Segmentation Insights
 
-FRIS identifies high-risk populations:
+FRIS identifies high-risk populations across 8 dimensions.
 
 ### Academic Performance
 
@@ -176,7 +257,7 @@ Income-Driven Repayment (IDR) plans show:
 * **0.7% default rate (IDR borrowers)**
 * **9.6% default rate (non-IDR borrowers)**
 
-👉 This highlights a **clear policy lever for default prevention**
+This highlights a **clear policy lever for default prevention**: proactive IDR enrollment counseling for at-risk students.
 
 ---
 
@@ -193,32 +274,10 @@ This framework transforms student financial services from **reactive operations 
 
 ---
 
-## System Architecture
-
-```
-ETL → Feature Engineering → ML Modeling → Evaluation → Segmentation
-```
-
-**Core Components:**
-
-* `fris_etl.py`
-* `fris_model.py`
-* `fris_segmentation.py`
-
----
-
-## Reproducibility
-
-* Modular pipeline
-* Fully reproducible outputs
-* Clean separation of data and code
-* Independent generation of analytical visuals
-
----
-
 ## Data Privacy & Compliance
 
-* No real student data included
+* No real student data included in this repository
+* Session data is stored in `data/sessions/` (mounted as a Docker volume, excluded from git)
 * FERPA-compliant design
 * Institutional data usage restricted to authorized environments
 
