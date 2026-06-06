@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Copa 2026 – Troca de Figurinhas</title>
+<link rel="stylesheet" href="/static/css/main.css">
+<link rel="stylesheet" href="/static/css/animations.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Oswald:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="splash" class="splash">
+  <div class="splash-ball"></div>
+  <div class="splash-content">
+    <div class="trophy-icon">🏆</div>
+    <h1 class="splash-title">Copa 2026</h1>
+    <p class="splash-sub">Gerenciador de Figurinhas</p>
+    <div class="splash-loader"><div class="splash-bar"></div></div>
+  </div>
+</div>
+
+<nav id="navbar" class="navbar hidden">
+  <div class="nav-brand">
+    <span class="nav-trophy">🏆</span>
+    <span class="nav-title">Copa 2026</span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-btn active" data-view="dashboard"><span>🏠</span> Início</button>
+    <button class="nav-btn" data-view="album"><span>📖</span> Meu Álbum</button>
+    <button class="nav-btn" data-view="trades"><span>🔄</span> Trocas</button>
+    <button class="nav-btn" data-view="group"><span>👥</span> Grupo</button>
+  </div>
+  <div class="nav-user" id="navUser">
+    <div class="nav-avatar" id="navAvatar"></div>
+    <span id="navUsername"></span>
+    <button class="nav-logout" id="logoutBtn" title="Sair">⏏</button>
+  </div>
+</nav>
+
+<main id="app">
+
+  <div id="view-auth" class="view active">
+    <div class="auth-bg">
+      <div class="auth-particles" id="authParticles"></div>
+      <div class="auth-card glass-card">
+        <div class="auth-logo">
+          <div class="auth-ball">⚽</div>
+          <h2>Copa 2026</h2>
+          <p>Troca de Figurinhas</p>
+        </div>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tabLogin">Entrar</button>
+          <button class="auth-tab" id="tabRegister">Cadastrar</button>
+        </div>
+        <form id="loginForm" class="auth-form active">
+          <div class="form-group">
+            <label>Usuário</label>
+            <input type="text" id="loginUsername" placeholder="Seu apelido" required>
+          </div>
+          <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full"><span class="btn-icon">⚽</span> Entrar</button>
+          <p id="loginError" class="form-error hidden"></p>
+        </form>
+        <form id="registerForm" class="auth-form">
+          <div class="form-group">
+            <label>Apelido</label>
+            <input type="text" id="regUsername" placeholder="Como te chamam?" required>
+          </div>
+          <div class="form-group">
+            <label>E-mail</label>
+            <input type="email" id="regEmail" placeholder="seu@email.com" required>
+          </div>
+          <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="regPassword" placeholder="••••••••" required minlength="6">
+          </div>
+          <button type="submit" class="btn btn-primary btn-full"><span class="btn-icon">🎯</span> Criar Conta</button>
+          <p id="registerError" class="form-error hidden"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-dashboard" class="view">
+    <div class="view-header">
+      <h2 class="view-title">🏠 Painel do Grupo</h2>
+      <p class="view-sub">Copa do Mundo 2026 · Figurinhas Repetidas</p>
+    </div>
+    <div class="stats-grid" id="dashStats"></div>
+    <div class="section-title">👥 Membros do Grupo</div>
+    <div class="members-grid" id="membersGrid"></div>
+    <div class="section-title">⚡ Ação Rápida</div>
+    <div class="quick-actions">
+      <button class="qa-card" onclick="switchView('album')">
+        <span class="qa-icon">📖</span>
+        <span class="qa-label">Gerenciar Álbum</span>
+        <span class="qa-desc">Adicionar repetidas e faltas</span>
+      </button>
+      <button class="qa-card" onclick="switchView('trades')">
+        <span class="qa-icon">🔄</span>
+        <span class="qa-label">Ver Trocas</span>
+        <span class="qa-desc">Sugestões inteligentes</span>
+      </button>
+      <button class="qa-card" onclick="switchView('group')">
+        <span class="qa-icon">👥</span>
+        <span class="qa-label">Visão do Grupo</span>
+        <span class="qa-desc">O que todos têm e querem</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="view-album" class="view">
+    <div class="view-header">
+      <h2 class="view-title">📖 Meu Álbum</h2>
+      <p class="view-sub">Marque suas repetidas e figurinhas que faltam</p>
+    </div>
+    <div class="album-toolbar">
+      <div class="album-search">
+        <input type="number" id="stickerSearch" placeholder="🔍 Nº da figurinha (1-670)" min="1" max="670">
+        <button class="btn btn-sm btn-secondary" onclick="Album.jumpTo()">Ir</button>
+      </div>
+      <div class="album-filters">
+        <button class="filter-btn active" data-filter="all">Todas</button>
+        <button class="filter-btn" data-filter="duplicates">Repetidas</button>
+        <button class="filter-btn" data-filter="wanted">Faltas</button>
+      </div>
+      <div class="album-legend">
+        <span class="legend-item">🔴 Repetida</span>
+        <span class="legend-item">🔵 Falta</span>
+      </div>
+    </div>
+    <div id="albumSections" class="album-sections"></div>
+    <div id="albumToast" class="album-toast hidden"></div>
+  </div>
+
+  <div id="view-trades" class="view">
+    <div class="view-header">
+      <h2 class="view-title">🔄 Sugestões de Troca</h2>
+      <p class="view-sub">O sistema analisa o grupo e sugere as melhores combinações</p>
+    </div>
+    <div class="trades-controls">
+      <button class="btn btn-primary btn-lg" id="generateTradesBtn" onclick="Trades.generate()">
+        <span class="btn-icon">⚡</span> Gerar Sugestões
+      </button>
+      <span id="tradesStatus" class="trades-status"></span>
+    </div>
+    <div id="tradesContainer" class="trades-container">
+      <div class="trades-empty">
+        <div class="empty-icon">🃃</div>
+        <h3>Nenhuma sugestão ainda</h3>
+        <p>Clique em "Gerar Sugestões" para calcular as melhores trocas</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-group" class="view">
+    <div class="view-header">
+      <h2 class="view-title">👥 Visão do Grupo</h2>
+      <p class="view-sub">Figurinhas repetidas e faltas de todos os membros</p>
+    </div>
+    <div id="groupContainer" class="group-container"></div>
+  </div>
+
+</main>
+
+<div id="stickerModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeModal()"></div>
+  <div class="modal-card glass-card">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/album.js"></script>
+<script src="/static/js/trades.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
