@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: sticker-backend
+    volumes:
+      - sticker-db:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - sticker-net
+
+  frontend:
+    build: ./frontend
+    container_name: sticker-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - sticker-net
+
+volumes:
+  sticker-db:
+
+networks:
+  sticker-net:
+    driver: bridge
