@@ -14,6 +14,8 @@ short_description: Predictive analytics for student loan default risk
 **Predictive Analytics for Student Loan Default Risk**
 New England College · Student Financial Services
 
+[![Portfolio Entry](https://img.shields.io/badge/Portfolio-Data%20Science%20Portfolio-blue)](https://github.com/glaubinhofranca-dotcom/data-science-portfolio/tree/main/28_FRIS_Predictive_Risk_Framework)
+
 ---
 
 ## Executive Summary
