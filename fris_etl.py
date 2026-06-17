@@ -186,6 +186,12 @@ def run_etl(input_path: Path, session_dir: Path, sis_profile: str = "banner") ->
     data["student_type"] = normalize_str(data["student_type"])
     data["campus_code"]  = normalize_str(data["campus_code"])
     data["payment_plan"] = normalize_str(data["payment_plan"])
+    data["state"]        = normalize_str_upper(data["state"])
+
+    # birth_date is converted to age immediately and never persisted as-is (FERPA / privacy)
+    birth_date = pd.to_datetime(data["birth_date"], errors="coerce")
+    reference_date = pd.Timestamp.now()
+    data["age"] = (reference_date - birth_date).dt.days // 365.25
 
     data["gpa"]            = to_numeric(data["gpa"])
     data["credits_earned"] = to_numeric(data["credits_earned"])
@@ -210,6 +216,7 @@ def run_etl(input_path: Path, session_dir: Path, sis_profile: str = "banner") ->
 
     FEATURES = [
         "level", "program", "major", "student_type", "campus_code",
+        "age", "state",
         "gpa", "credits_earned", "graduated", "withdrawn",
         "num_loans", "original_loan_amount", "current_balance", "payment_plan",
     ]

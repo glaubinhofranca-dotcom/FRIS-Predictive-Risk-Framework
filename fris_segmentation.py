@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import NamedTuple
 from matplotlib.patches import Patch
 
-from fris_config import COLORS, IDR_PATTERN, MIN_N_DEFAULT, MIN_N_PROGRAM
+from fris_config import COLORS, IDR_PATTERN, MIN_N_DEFAULT, MIN_N_PROGRAM, MIN_N_STATE
 
 SCRIPT_DIR = Path(__file__).parent
 
@@ -120,6 +120,12 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
         labels=["< 2.0", "2.0–2.5", "2.5–3.0", "3.0–3.5", "3.5–4.0"],
     )
 
+    df["age_band"] = pd.cut(
+        df["age"],
+        bins=[0, 20, 25, 30, 40, 120],
+        labels=["< 20", "20–24", "25–29", "30–39", "40+"],
+    )
+
     df["loan_band"] = pd.cut(
         df["original_loan_amount"],
         bins=[0, 5000, 15000, 30000, 50000, 999_999],
@@ -139,6 +145,8 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
         "Student type":      _segment(df, "student_type", "Student type"),
         "Campus":            _segment(df, "campus_code", "Campus"),
         "GPA band":          _segment(df, "gpa_band", "GPA band"),
+        "Age band":          _segment(df, "age_band", "Age band"),
+        "State":             _segment(df, "state", "State", min_n=MIN_N_STATE),
         "Loan amount":       _segment(df, "loan_band", "Loan amount"),
         "Payment plan":      _segment(df, "payment_plan", "Payment plan"),
         "Program":           _segment(df, "program", "Program", min_n=MIN_N_PROGRAM),
@@ -224,18 +232,20 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
     print(f"\nCSV saved: {out_csv}")
 
     # -------------------------------------------------------------------------
-    # VISUALIZATION — 9 panels
+    # VISUALIZATION — 11 panels
     # -------------------------------------------------------------------------
-    fig = plt.figure(figsize=(18, 24))
+    fig = plt.figure(figsize=(18, 28))
     fig.suptitle(
         f"FRIS v3 — Default Rate Segmentation · New England College\n"
         f"'Level' column sourced from LEVL_CODE (Banner authoritative academic level field)",
         fontsize=14, fontweight="bold", y=0.99,
     )
-    gs = gridspec.GridSpec(5, 2, figure=fig, hspace=0.55, wspace=0.35)
+    gs = gridspec.GridSpec(6, 2, figure=fig, hspace=0.55, wspace=0.35)
 
-    gpa_t  = segs["GPA band"].sort_values("GPA band")
-    prog_t = segs["Program"].head(15)
+    gpa_t   = segs["GPA band"].sort_values("GPA band")
+    age_t   = segs["Age band"].sort_values("Age band")
+    state_t = segs["State"].head(10)
+    prog_t  = segs["Program"].head(15)
 
     # Standard panels — driven by a declarative spec list
     panel_specs = [
@@ -258,19 +268,28 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
          "labels": gpa_t["GPA band"],
          "rates": gpa_t["default_rate"]},
         {"row": 2, "col": 0,
+         "title": "By age band",
+         "labels": age_t["Age band"],
+         "rates": age_t["default_rate"]},
+        {"row": 2, "col": 1,
+         "title": "By state of residence · top 10 (min n=10)",
+         "labels": state_t["State"],
+         "rates": state_t["default_rate"],
+         "small_ticks": True},
+        {"row": 3, "col": 0,
          "title": "By original loan amount",
          "labels": segs["Loan amount"]["Loan amount"],
          "rates": segs["Loan amount"]["default_rate"]},
-        {"row": 2, "col": 1,
+        {"row": 3, "col": 1,
          "title": "By graduation / withdrawal status",
          "labels": [r.label for r in status_rows],
          "rates": [r.rate for r in status_rows]},
-        {"row": 3, "col": 0,
+        {"row": 4, "col": 0,
          "title": "By payment plan · IDR = 0% default (policy finding)",
          "labels": segs["Payment plan"]["Payment plan"],
          "rates": segs["Payment plan"]["default_rate"],
          "small_ticks": True},
-        {"row": 4, "col": slice(None),   # spans both columns
+        {"row": 5, "col": slice(None),   # spans both columns
          "title": "By program · top 15 by default rate (min n=10)",
          "labels": prog_t["Program"],
          "rates": prog_t["default_rate"],
@@ -291,7 +310,7 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
 
     # IDR panel — custom colors (GREEN=IDR, RED=non-IDR; not driven by overall threshold)
     overall_line = dict(color=GRAY, linestyle="--", linewidth=1, label=f"Overall {OVERALL:.1%}")
-    ax_idr = fig.add_subplot(gs[3, 1])
+    ax_idr = fig.add_subplot(gs[4, 1])
     idr_labels = ["IDR plans\n(IBR / REPAYE / PAYE)", "Non-IDR\n(Standard / Graduated)"]
     idr_rates = [idr_rate, non_idr_rate]
     b = ax_idr.barh(idr_labels, idr_rates, color=[GREEN, RED], height=0.4)
@@ -341,6 +360,8 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
             "student_type":      _seg_to_list(segs["Student type"], "Student type"),
             "campus":            _seg_to_list(segs["Campus"], "Campus"),
             "gpa_band":          _seg_to_list(segs["GPA band"], "GPA band"),
+            "age_band":          _seg_to_list(segs["Age band"], "Age band"),
+            "state":             _seg_to_list(segs["State"], "State"),
             "loan_amount":       _seg_to_list(segs["Loan amount"], "Loan amount"),
             "payment_plan":      _seg_to_list(segs["Payment plan"], "Payment plan"),
             "program":           _seg_to_list(segs["Program"], "Program"),

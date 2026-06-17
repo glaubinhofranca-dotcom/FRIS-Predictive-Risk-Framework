@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from fris_etl import _apply_sis_profile
+from fris_etl import _apply_sis_profile, run_etl
 from fris_utils import clean_currency
 from fris_config import DEFAULT_DAYS_THRESHOLD
 from fris_sis_profiles import get_profile
@@ -15,6 +15,8 @@ def _banner_df(**overrides) -> pd.DataFrame:
         "MAJR_DESC": ["Computer Science", "Business"],
         "STYP_DESC": ["New", "Transfer"],
         "CAMP_CODE": ["MAIN", "ONLINE"],
+        "BIRTH_DATE": ["2000-05-15", "1998-03-20"],
+        "STATE_CODE": ["NH", "ma"],
         "OVERALL_LGPA_GPA": [3.5, 2.8],
         "OVERALL_LGPA_HOURS_EARNED": [60, 30],
         "GRADUATED_IND": ["Y", "N"],
@@ -72,6 +74,8 @@ def test_apply_peoplesoft_profile_normalizes_ugrd_to_ug():
         "ACAD_PLAN": ["CS"],
         "ADMIT_TYPE": ["FTF"],
         "CAMPUS": ["MAIN"],
+        "BIRTHDATE": ["2001-01-01"],
+        "ADDR_STATE": ["CA"],
         "CUM_GPA": [3.0],
         "TOT_TAKEN_GPA": [45],
         "COMPLETION_STAT": ["CM"],
@@ -117,3 +121,32 @@ def test_default_flag_boundary():
 def test_default_days_threshold_value():
     """Threshold is 270 per 34 CFR § 682.200."""
     assert DEFAULT_DAYS_THRESHOLD == 270
+
+
+# ── age / state derivation (run_etl end-to-end) ──────────────────────────────────
+
+def test_run_etl_derives_age_and_drops_raw_birth_date(tmp_path):
+    df = _banner_df()
+    input_path = tmp_path / "input.csv"
+    df.to_csv(input_path, index=False)
+
+    result = run_etl(input_path=input_path, session_dir=tmp_path, sis_profile="banner")
+
+    out = pd.read_csv(result["output_path"])
+    assert "birth_date" not in out.columns
+    assert "age" in out.columns
+
+    reference_date = pd.Timestamp.now()
+    expected_ages = (reference_date - pd.to_datetime(df["BIRTH_DATE"])).dt.days // 365.25
+    assert list(out["age"]) == list(expected_ages)
+
+
+def test_run_etl_normalizes_state_to_uppercase(tmp_path):
+    df = _banner_df()
+    input_path = tmp_path / "input.csv"
+    df.to_csv(input_path, index=False)
+
+    result = run_etl(input_path=input_path, session_dir=tmp_path, sis_profile="banner")
+
+    out = pd.read_csv(result["output_path"])
+    assert list(out["state"]) == ["NH", "MA"]
