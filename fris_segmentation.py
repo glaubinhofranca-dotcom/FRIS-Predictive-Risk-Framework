@@ -48,12 +48,30 @@ class StatusRow(NamedTuple):
 
 
 def _segment(df: pd.DataFrame, group_col: str, label: str, min_n: int = MIN_N_DEFAULT) -> pd.DataFrame:
-    """Default rate per group, sorted descending, filtered to min_n."""
+    """
+    Default rate per group, sorted descending, filtered to min_n.
+
+    Real-world exports can make a column sparse (mostly null) or
+    high-cardinality (near-unique free text), which would otherwise filter
+    every group below min_n and silently render the panel empty. When that
+    happens, fall back to the unfiltered breakdown so the segment still
+    shows something rather than nothing.
+    """
     g = (df.groupby(group_col, observed=True)["default_flag"]
            .agg(count="count", defaults="sum")
            .reset_index())
     g["default_rate"] = g["defaults"] / g["count"]
-    g = g[g["count"] >= min_n].sort_values("default_rate", ascending=False)
+    filtered = g[g["count"] >= min_n]
+    if filtered.empty and not g.empty:
+        print(f"  ⚠ '{label}': no group reached min_n={min_n} "
+              f"(largest group n={int(g['count'].max())}, {len(g)} distinct values); "
+              f"showing top 15 by count instead.")
+        filtered = g.sort_values("count", ascending=False).head(15)
+    elif g.empty:
+        non_null = int(df[group_col].notna().sum())
+        print(f"  ⚠ '{label}': column '{group_col}' has no groupable values "
+              f"({non_null:,}/{len(df):,} non-null) — panel will be empty.")
+    g = filtered.sort_values("default_rate", ascending=False)
     g.columns = [label, "n", "defaults", "default_rate"]
     return g
 
