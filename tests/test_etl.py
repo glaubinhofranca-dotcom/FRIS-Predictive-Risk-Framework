@@ -16,7 +16,7 @@ def _banner_df(**overrides) -> pd.DataFrame:
         "STYP_DESC": ["New", "Transfer"],
         "CAMP_CODE": ["MAIN", "ONLINE"],
         "BIRTH_DATE": ["2000-05-15", "1998-03-20"],
-        "STATE_CODE": ["NH", "ma"],
+        "STATE1": ["NH", "ma"],
         "OVERALL_LGPA_GPA": [3.5, 2.8],
         "OVERALL_LGPA_HOURS_EARNED": [60, 30],
         "GRADUATED_IND": ["Y", "N"],

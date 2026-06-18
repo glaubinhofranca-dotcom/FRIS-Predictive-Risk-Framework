@@ -58,7 +58,7 @@ SIS_PROFILES: dict[str, dict] = {
             "STYP_DESC":                 "student_type",
             "CAMP_CODE":                 "campus_code",
             "BIRTH_DATE":                "birth_date",
-            "STATE_CODE":                "state",
+            "STATE1":                    "state",
             "OVERALL_LGPA_GPA":          "gpa",
             "OVERALL_LGPA_HOURS_EARNED": "credits_earned",
             "GRADUATED_IND":             "graduated_ind",
