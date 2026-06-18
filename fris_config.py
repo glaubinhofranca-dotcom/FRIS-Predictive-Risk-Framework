@@ -17,6 +17,7 @@ LEVEL_CODES = ["UG", "GR"]
 # ── Segmentation thresholds ───────────────────────────────────────────────────
 MIN_N_DEFAULT = 5
 MIN_N_PROGRAM = 10
+MIN_N_STATE = 10
 
 # IDR detection — Banner stores full plan names, not short codes.
 # Matching on substrings covers all IBR, PAYE, REPAYE, SAVE, ICR variants.

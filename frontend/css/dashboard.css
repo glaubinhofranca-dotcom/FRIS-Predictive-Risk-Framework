@@ -298,6 +298,7 @@ main {
 .charts-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  align-items: start;
   gap: 1rem;
 }
 
@@ -365,10 +366,6 @@ main {
 .dist-stat      { display: flex; flex-direction: column; align-items: center; }
 .dist-stat-val  { font-weight: 600; font-size: 0.85rem; }
 .dist-stat-lbl  { font-size: 0.65rem; color: var(--muted); }
-
-/* Full matplotlib charts */
-.full-chart-card { }
-.full-chart-img  { width: 100%; border-radius: 6px; display: block; }
 
 /* ── SIS Selector ──────────────────────────────────────────── */
 .sis-selector {

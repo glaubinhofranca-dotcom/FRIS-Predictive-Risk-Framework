@@ -149,8 +149,6 @@ function resetToUpload() {
     const el = $("step-" + s);
     if (el) el.className = "step-item";
   });
-  $("img-model").src = "";
-  $("img-seg").src = "";
   $("subgroup-grid").innerHTML = "";
   $("dist-table").innerHTML = "";
   $("kpi-idr").classList.add("pulse-red");
@@ -327,7 +325,6 @@ async function loadDashboard(sid) {
   renderSubgroupAUC(data.model);
   renderEDA(data.eda);
   renderSegmentation(data.segmentation);
-  renderImages(sid);
 }
 
 // ── KPI Cards ────────────────────────────────────────────────────────────────
@@ -347,7 +344,7 @@ function renderKPIs(data) {
   $("sub-auc").textContent = model.best_model;
 
   const diff = segmentation.idr_differential;
-  animateCounter($("val-idr"), diff * 100, v => "−" + v.toFixed(1) + "pp");
+  animateCounter($("val-idr"), diff * 100, v => (v >= 0 ? "−" : "+") + Math.abs(v).toFixed(1) + "pp");
   $("sub-idr").textContent =
     `IDR ${(segmentation.idr_rate * 100).toFixed(1)}% vs non-IDR ${(segmentation.non_idr_rate * 100).toFixed(1)}%`;
 
@@ -532,12 +529,15 @@ function renderSegmentation(seg) {
   const overall = seg.overall_default_rate;
   const s = seg.segments;
 
-  makeSegChart("seg-level",       s.level,            "value", overall);
-  makeSegChart("seg-gpa",         s.gpa_band,         "value", overall);
-  makeSegChart("seg-student-type", s.student_type,    "value", overall);
-  makeSegChart("seg-campus",      s.campus,           "value", overall);
-  makeSegChart("seg-loan",        s.loan_amount,      "value", overall);
-  makeSegChart("seg-status",      s.graduation_status, "value", overall);
+  makeSegChart("seg-level",        s.level,            "value", overall);
+  makeSegChart("seg-student-type", s.student_type,     "value", overall);
+  makeSegChart("seg-campus",       s.campus,           "value", overall);
+  makeSegChart("seg-gpa",          s.gpa_band,         "value", overall);
+  makeSegChart("seg-age",          s.age_band,         "value", overall);
+  makeSegChart("seg-state",        (s.state || []).slice(0, 10), "value", overall);
+  makeSegChart("seg-loan",         s.loan_amount,      "value", overall);
+  makeSegChart("seg-payment-plan", s.payment_plan,     "value", overall);
+  makeSegChart("seg-status",       s.graduation_status, "value", overall);
 
   // IDR highlight chart (2 bars only)
   const idrItems = [
@@ -552,12 +552,6 @@ function renderSegmentation(seg) {
   // Top programs (top 12)
   const topPrograms = [...(s.program || [])].sort((a, b) => b.default_rate - a.default_rate).slice(0, 12);
   makeSegChart("seg-program", topPrograms, "value", overall);
-}
-
-// ── Static Images ─────────────────────────────────────────────────────────────
-function renderImages(sid) {
-  $("img-model").src = `/api/static/${sid}/fris_model_results.png`;
-  $("img-seg").src   = `/api/static/${sid}/fris_segmentation.png`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

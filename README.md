@@ -43,7 +43,7 @@ Upload file → ETL → EDA → Segmentation → Model → Dashboard
 | `fris_sis_profiles.py` | SIS adapter definitions (Banner, Workday, PeopleSoft, Colleague) |
 | `fris_etl.py` | Load, apply SIS profile, filter, engineer features, output `dataset_fris.csv` |
 | `fris_eda.py` | Distributions, missing values, correlations with default flag |
-| `fris_segmentation.py` | Default rate by 8 dimensions + IDR policy finding |
+| `fris_segmentation.py` | Default rate by 10 dimensions + IDR policy finding |
 | `fris_model.py` | 5-fold CV across 3 classifiers, feature importance, subgroup AUC |
 
 ### Web application
@@ -173,6 +173,11 @@ Aligned with federal regulation (34 CFR § 682.200).
 * Academic level (LEVL\_CODE — Banner authoritative field)
 * Program and student type
 
+**Demographic**
+
+* Age — derived from birth date at pipeline run time; raw birth date is never persisted (FERPA-aligned)
+* State of residence
+
 **Financial & Loan Data**
 
 * Number of loans
@@ -230,7 +235,7 @@ Default risk is driven by a combination of:
 
 ## Segmentation Insights
 
-FRIS identifies high-risk populations across 8 dimensions.
+FRIS identifies high-risk populations across 10 dimensions, including age band and state of residence.
 
 ### Academic Performance
 
