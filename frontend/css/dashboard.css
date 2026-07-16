@@ -322,6 +322,17 @@ main {
 .chart-wrap     { position: relative; height: 260px; }
 .chart-wrap-sm  { height: 220px; }
 
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 1rem;
+}
+
 /* Segmentation grid */
 .seg-grid {
   display: grid;

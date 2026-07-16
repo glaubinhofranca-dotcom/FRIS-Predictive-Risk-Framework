@@ -495,6 +495,25 @@ function renderEDA(eda) {
 
 // ── Segmentation Charts ──────────────────────────────────────────────────────
 function makeSegChart(canvasId, items, valueKey, overall) {
+  const canvas = $(canvasId);
+  const wrap = canvas.parentElement;
+  let placeholder = wrap.querySelector(".chart-empty");
+
+  if (!items || items.length === 0) {
+    if (charts[canvasId]) { charts[canvasId].destroy(); delete charts[canvasId]; }
+    canvas.classList.add("hidden");
+    if (!placeholder) {
+      placeholder = document.createElement("div");
+      placeholder.className = "chart-empty";
+      placeholder.textContent = "Insufficient data for this segment";
+      wrap.appendChild(placeholder);
+    }
+    return;
+  }
+
+  if (placeholder) placeholder.remove();
+  canvas.classList.remove("hidden");
+
   const labels = items.map(r => r[valueKey] ?? r.value ?? "");
   const rates  = items.map(r => r.default_rate);
   const colors = rates.map(r => segColor(r, overall));
