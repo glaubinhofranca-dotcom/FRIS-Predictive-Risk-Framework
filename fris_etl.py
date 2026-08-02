@@ -1,6 +1,6 @@
 """
 FRIS v3 — ETL Pipeline
-New England College · Student Financial Services
+M.S. in Data Science and Analytics
 
 CHANGE FROM v2:
     Academic level is now determined exclusively by LEVL_CODE (Banner authoritative field).

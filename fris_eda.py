@@ -1,6 +1,6 @@
 """
 FRIS v3 — Exploratory Data Analysis
-New England College · Student Financial Services
+M.S. in Data Science and Analytics
 
 INPUT:  dataset_fris.csv   (produced by fris_etl.py)
 OUTPUT: dict (no files written — results returned for API/dashboard)

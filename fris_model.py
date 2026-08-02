@@ -1,6 +1,6 @@
 """
 FRIS v3 — Machine Learning Model
-New England College · Student Financial Services
+M.S. in Data Science and Analytics
 
 CHANGE FROM v2:
     The 'level' feature now reflects LEVL_CODE from Banner (set by fris_etl.py).

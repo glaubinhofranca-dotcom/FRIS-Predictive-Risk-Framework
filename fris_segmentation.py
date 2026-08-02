@@ -1,6 +1,6 @@
 """
 FRIS v3 — Segmentation Analysis
-New England College · Student Financial Services
+M.S. in Data Science and Analytics
 
 CHANGE FROM v2:
     The 'level' segmentation panel now explicitly labels its source as LEVL_CODE
@@ -254,7 +254,7 @@ def run_segmentation(data_path: Path, session_dir: Path) -> dict:
     # -------------------------------------------------------------------------
     fig = plt.figure(figsize=(18, 28))
     fig.suptitle(
-        f"FRIS v3 — Default Rate Segmentation · New England College\n"
+        f"FRIS v3 — Default Rate Segmentation\n"
         f"'Level' column sourced from LEVL_CODE (Banner authoritative academic level field)",
         fontsize=14, fontweight="bold", y=0.99,
     )

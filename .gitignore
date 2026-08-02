@@ -16,3 +16,9 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated pipeline artifacts
+fris_model_results.png
+fris_segmentation.png
+*.pkl
+dataset_fris.csv

@@ -49,7 +49,7 @@ SIS_PROFILES: dict[str, dict] = {
     # Used by ~1,200 US institutions. NEC's production SIS.
     "banner": {
         "display_name": "Banner / Ellucian",
-        "description": "Used by ~1,200 US institutions. Default for New England College.",
+        "description": "Ellucian Banner. Default profile.",
         "column_map": {
             "ID":                        "student_id",
             "LEVL_CODE":                 "level",
