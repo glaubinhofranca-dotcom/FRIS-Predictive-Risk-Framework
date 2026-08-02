@@ -12,9 +12,14 @@ short_description: Predictive analytics for student loan default risk
 # FRIS — Financial Risk Intelligence System
 
 **Predictive Analytics for Student Loan Default Risk**
-New England College · Student Financial Services
+Validated on a de-identified institutional dataset of 1,302 borrowers
 
 [![Portfolio Entry](https://img.shields.io/badge/Portfolio-Data%20Science%20Portfolio-blue)](https://github.com/glaubinhofranca-dotcom/data-science-portfolio/tree/main/28_FRIS_Predictive_Risk_Framework)
+
+> **Results reference.** The figures reported here — 1,302 borrowers, 7.5% baseline
+> default rate, Random Forest AUC 0.772 under five-fold cross-validation — are
+> preserved at tag [`v1.0`](../../releases/tag/v1.0). See
+> [RESULTS.md](RESULTS.md) for the full table and stated limitations.
 
 ---
 
@@ -65,10 +70,8 @@ FRIS supports four Student Information Systems out of the box. Select the profil
 
 | Profile key | System | Notes |
 |---|---|---|
-| `banner` | Banner / Ellucian | Default. Used by ~1,200 US institutions including NEC |
-| `workday` | Workday Student | Column names from Workday report builder |
-| `peoplesoft` | PeopleSoft / Oracle | Column names from PS Query / SQR exports |
-| `colleague` | Colleague / Ellucian | Used by ~700 US institutions |
+| `banner` | Banner / Ellucian | Default profile |
+| `colleague` | Colleague / Ellucian | Ellucian's other SIS |
 
 To add a new SIS, add an entry to `fris_sis_profiles.py` — no other file needs to change.
 
@@ -112,7 +115,7 @@ python fris_model.py        # produces fris_model_results.png + .pkl
 
 ## Dataset Overview
 
-> Numbers below are from the NEC production run (2024). Your institution's results will differ.
+> Numbers below are from the reference run on a de-identified institutional dataset (aid year 2025–26). Your institution's results will differ.
 
 * Total borrowers: **1,302**
 * Default rate: **7.5% (98 defaults)**
@@ -175,7 +178,7 @@ Aligned with federal regulation (34 CFR § 682.200).
 
 **Demographic**
 
-* Age — derived from birth date at pipeline run time; raw birth date is never persisted (FERPA-aligned)
+* Age — derived from birth date at pipeline run time; raw birth date is never persisted
 * State of residence
 
 **Financial & Loan Data**
@@ -200,7 +203,7 @@ Hyperparameters and CV settings are centralized in `fris_config.py`.
 
 ## Model Performance
 
-> NEC run — Random Forest selected as best model.
+> reference run — Random Forest selected as best model.
 
 | Metric    | Value             |
 | --------- | ----------------- |
@@ -285,7 +288,7 @@ This framework transforms student financial services from **reactive operations 
 
 * No real student data included in this repository
 * Session data is stored in `data/sessions/` (mounted as a Docker volume, excluded from git)
-* FERPA-compliant design
+* FERPA-conscious design — raw dates of birth are never persisted
 * Institutional data usage restricted to authorized environments
 
 ---
@@ -293,7 +296,7 @@ This framework transforms student financial services from **reactive operations 
 ## Author
 
 **Glauber Franca Rocha**
-Student Financial Services · New England College
+M.S. Candidate, Data Science and Analytics
 
 Applied research in:
 
