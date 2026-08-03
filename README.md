@@ -73,6 +73,8 @@ FRIS supports four Student Information Systems out of the box. Select the profil
 | Profile key | System | Notes |
 |---|---|---|
 | `banner` | Banner / Ellucian | Default profile |
+| `workday` | Workday Student | Column names from Workday report builder |
+| `peoplesoft` | PeopleSoft / Oracle | Column names from PS Query / SQR exports |
 | `colleague` | Colleague / Ellucian | Ellucian's other SIS |
 
 To add a new SIS, add an entry to `fris_sis_profiles.py` — no other file needs to change.
@@ -224,7 +226,7 @@ Subgroup performance:
 
 ## Key Predictors of Default Risk
 
-Top features (aggregated importance, NEC run):
+Top features (aggregated importance, reference run):
 
 * Payment plan → **18.6%**
 * Program → **16.1%**

@@ -1,6 +1,6 @@
 # Results
 
-Reference results for this repository, preserved at tag `v1.0`.
+Reference results for this repository, preserved at tag `v1.0.1`.
 
 Dataset: 1,302 de-identified student borrowers, aid year 2025–26, exported from a
 Banner student information system.
@@ -26,5 +26,5 @@ One feature carries a potential data-leakage risk, documented in the pipeline no
 Results are observational. Borrowers enrolled in income-driven repayment may differ
 systematically from those who are not, in ways this dataset cannot measure.
 
-Development after tag `v1.0` continues on separate branches; the tagged state is the
+Development after tag `v1.0.1` continues on separate branches; the tagged state is the
 reference for the figures above.
