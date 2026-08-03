@@ -16,9 +16,11 @@ Validated on a de-identified institutional dataset of 1,302 borrowers
 
 [![Portfolio Entry](https://img.shields.io/badge/Portfolio-Data%20Science%20Portfolio-blue)](https://github.com/glaubinhofranca-dotcom/data-science-portfolio/tree/main/28_FRIS_Predictive_Risk_Framework)
 
+[![DOI](https://zenodo.org/badge/1211070787.svg)](https://doi.org/10.5281/zenodo.21765086)
+
 > **Results reference.** The figures reported here — 1,302 borrowers, 7.5% baseline
 > default rate, Random Forest AUC 0.772 under five-fold cross-validation — are
-> preserved at tag [`v1.0`](../../releases/tag/v1.0). See
+> preserved at tag [v1.0.1](../../releases/tag/v1.0.1). See
 > [RESULTS.md](RESULTS.md) for the full table and stated limitations.
 
 ---
@@ -296,6 +298,7 @@ This framework transforms student financial services from **reactive operations 
 ## Author
 
 **Glauber Franca Rocha**
+
 M.S. Candidate, Data Science and Analytics
 
 Applied research in:
